@@ -1,0 +1,212 @@
+---
+title: "title"
+author: "author"
+abstract: "abstract"
+header-includes:
+   - \usepackage[brazil]{babel}
+   - \usepackage{bm}
+   - \usepackage{float}
+geometry: left=1.7cm, right=1.7cm, top=3cm, bottom=3cm
+output:
+  bookdown::pdf_document2:
+editor_options:
+  chunk_output_type: console
+indent: true
+---
+
+
+
+```{r setup, include=F}
+
+options(digits = 3)  
+options(scipen = 999)
+ggplot2::theme_set(ggplot2::theme_minimal()) 
+knitr::opts_chunk$set(echo=F, message=F, warning=F, fig.pos = 'H', 
+                      fig.align = 'center', fig.width = 6, fig.height= 3.5)
+scale_fill_discrete = \(...) ggplot2::scale_fill_brewer(... , palette = "Set2") 
+```
+
+
+```{r librarys}
+library(dplyr)
+library(ggplot2)
+library(survival)
+library(flexsurv)
+library(magrittr)
+library(ggfortify)
+```
+
+```{r functions}
+null_models <- functions(df){
+  p_null_models = matrix(nrow = 4, ncol = 2)
+  
+  j = 1
+  for(i in c('gengamma', 'exponential', 'weibull', 'lognormal')){
+    if(i == 'gengamma'){
+      p_null_models[j,2] = 
+    }
+  }
+  
+  fitg<-flexsurvreg(Surv(temp,cens)~1, dist='gengamma')
+  
+fitg
+fite<-survreg(Surv(temp,cens)~1, dist='exponential')
+fite
+fitw<-survreg(Surv(temp,cens)~1, dist='weibull')
+fitw
+fitln<-survreg(Surv(temp,cens)~1, dist='lognormal')
+fitln
+}
+
+```
+
+
+```{r}
+df = readr::read_csv('sobrevivencia.csv')
+```
+
+
+
+```{r}
+df = df |> filter(TEMPO != 0) |> mutate(INGRESSO = as.factor(INGRESSO),
+                                        COTA = as.factor(COTA), 
+                                        CHAMADA = as.factor(CHAMADA),
+                                        NOME_CURSO_AJUSTADO = 
+                                          as.factor(NOME_CURSO_AJUSTADO),
+                                        TURNO_CURSO = as.factor(TURNO_CURSO),
+                                        ID_SEXO = as.factor(ID_SEXO),
+                                        ID_ETNIA = as.factor(ID_ETNIA))
+fitg<-flexsurvreg(Surv(TEMPO,CENSURA)~1, data = df, dist='gengamma')
+fitg
+fite<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist='exponential')
+fite
+fitw<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist='weibull')
+fitw
+fitln<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist='lognormal')
+fitln
+
+p.valore= 1-pchisq(2*(fitg$loglik[1]-fite$loglik[1]),2)
+p.valorw= 1-pchisq(2*(fitg$loglik[1]-fitw$loglik[1]),1)
+p.valorln= 1-pchisq(2*(fitg$loglik[1]-fitln$loglik[1]),1)
+p.valorew = 1-pchisq(2*(fitw$loglik[1]-fite$loglik[1]),1)
+```
+
+
+```{r}
+
+```
+
+
+
+```{r}
+######################################
+##### Escolha da distribui��o ########
+######################################
+ekm1<-survfit((Surv(df$TEMPO,df$CENSURA)~1))
+summary(ekm1)
+autoplot(ekm1)
+
+st1<-ekm1[1]$surv
+time1<-ekm1[1]$time
+invst1<-qnorm(st1)
+st2<-ekm1[2]$surv
+time2<-ekm1[2]$time
+invst2<-qnorm(st2)
+
+### M�todo da lineariza��o da sobreviv�ncia ####
+par(mfrow=c(1,3))
+plot(time1, -log(st1), pch=16, xlab="tempos", ylab="-log(S(t))",
+     main="Exponencial")
+points(time2, -log(st2))
+legend(100, 0.6, pch=c(16,1), c("Ag+","Ag-"), bty="n")
+
+plot(log(time1), log(-log(st1)), pch=16, xlab="log(tempos)", 
+     ylab="log(-log(S(t)))", main="Weibull")
+points(log(time2), log(-log(st2)))
+legend(3, -1.5, pch=c(16,1), c("Ag+","Ag-"), bty="n")
+
+plot(log(time1), invst1,pch=16, xlab="log(tempos)", 
+     ylab=expression(Phi^-1*(S(t))), main = "Log-normal")
+points(log(time2), invst2)
+legend(0.5,-1, pch=c(16,1), c("Ag+","Ag-"), bty="n")
+```
+
+
+```{r}
+###################################################
+############# Teste de hip�teses ##################
+###################################################
+# H0 : O modelo de interesse � adequado
+# H1 : O modelo n�o � adequado
+fitg<-flexsurvreg(Surv(temp,cens)~1, dist='gengamma')
+fitg
+fite<-survreg(Surv(temp,cens)~1, dist='exponential')
+fite
+fitw<-survreg(Surv(temp,cens)~1, dist='weibull')
+fitw
+fitln<-survreg(Surv(temp,cens)~1, dist='lognormal')
+fitln
+
+trv=2*(fitw$loglik[2]-fite$loglik[2])
+pvalor=1-pchisq(trv, 1)
+
+p.valore= 1-pchisq(2*(fitg$loglik[1]-fite$loglik[1]),2)
+p.valorw= 1-pchisq(2*(fitg$loglik[1]-fitw$loglik[1]),1)
+p.valorln= 1-pchisq(2*(fitg$loglik[1]-fitln$loglik[1]),1)
+
+
+teste <- function(df, dist, ...){
+  mc <- match.call(expand.dots = FALSE)
+  call_args <- mc$...
+  name <- call_args |> unlist()
+  fit<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist=dist)
+  pvalores = vector(mode='logical', length(name))
+  j = 1
+  for(i in name){
+    v1 = df |> select( {{i}} ) |> unlist()
+    fit_covariavel<-survreg(Surv(TEMPO,CENSURA)~v1, data = df, dist= dist)
+    pvalores[j]= 1-pchisq(2*(fit_covariavel$loglik[2]-fit$loglik[2]),1)
+    j = j +1  
+  }
+  pvalores
+}
+
+
+# Adicionar covari�veis ao modelo selecionado
+fit2<-survreg(Surv(temp,cens)~lwbc, dist='exponential')
+fit2
+fit3<-survreg(Surv(temp,cens)~grupo, dist='exponential')
+fit3
+fit4<-survreg(Surv(temp,cens)~lwbc + grupo, dist='exponential')
+fit4
+fit4w<-survreg(Surv(temp,cens)~lwbc + grupo, dist='weibull')
+fit4w
+
+
+p.valori= 1-pchisq(2*(fit4w$loglik[2]-fit4$loglik[2]),1)
+
+
+
+fit5<-survreg(Surv(temp,cens)~lwbc + grupo+lwbc*grupo, dist='exponential')
+fit5
+summary(fit5)
+summary(fit4)
+
+TRV1=2*(fit5$loglik[2]-fit4$loglik[2])
+TRV2=2*(fit2$loglik[2]-fite$loglik[2])
+TRV3=2*(fit4$loglik[2]-fit2$loglik[2])
+
+p.valori= 1-pchisq(2*(fit5$loglik[2]-fit4$loglik[2]),1)
+p.valorx1= 1-pchisq(2*(fit2$loglik[2]-fite$loglik[2]),1)
+p.valorx2x1= 1-pchisq(2*(fit4$loglik[2]-fit2$loglik[2]),1)
+
+m=matrix(c(TRV1, TRV2, TRV3, p.valori, p.valorx1, p.valorx2x1), ncol=2)
+round(m, 3)
+
+X=cbind(1, lwbc, grupo)
+
+beta=fit4$coefficients
+```
+
+
+
