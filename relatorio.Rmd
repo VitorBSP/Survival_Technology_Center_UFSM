@@ -17,7 +17,6 @@ indent: true
 
 
 ```{r setup, include=F}
-
 options(digits = 3)  
 options(scipen = 999)
 ggplot2::theme_set(ggplot2::theme_minimal()) 
@@ -34,57 +33,176 @@ library(survival)
 library(flexsurv)
 library(magrittr)
 library(ggfortify)
+library(patchwork)
 ```
 
 ```{r functions}
-null_models <- functions(df){
-  p_null_models = matrix(nrow = 4, ncol = 2)
+# null_models <- functions(df){
+#   p_null_models = matrix(nrow = 4, ncol = 2)
+#   
+#   j = 1
+#   for(i in c('gengamma', 'exponential', 'weibull', 'lognormal')){
+#     if(i == 'gengamma'){
+#       p_null_models[j,2] = 
+#     }
+#   }
+#   
   
-  j = 1
-  for(i in c('gengamma', 'exponential', 'weibull', 'lognormal')){
-    if(i == 'gengamma'){
-      p_null_models[j,2] = 
-    }
-  }
-  
-  fitg<-flexsurvreg(Surv(temp,cens)~1, dist='gengamma')
-  
-fitg
-fite<-survreg(Surv(temp,cens)~1, dist='exponential')
-fite
-fitw<-survreg(Surv(temp,cens)~1, dist='weibull')
-fitw
-fitln<-survreg(Surv(temp,cens)~1, dist='lognormal')
-fitln
+grafico <- function(data, v1, title, v2 = tempo){
+  ggplot(data) +
+    geom_point(aes({{v2}},{{v1}})) +
+    labs(title = title)
 }
 
+bar_plot <- function(df, v) {
+  ggplot(df, aes(
+    x = {{ v }},
+    y = prop.table(stat(count)),
+    fill =  {{ v }},
+    label = scales::percent(prop.table(stat(count)))
+  )) +
+    geom_bar(position = "dodge", color = "black") +
+    geom_text(
+      stat = "count",
+      position = position_dodge(.9),
+      vjust = -0.3,
+      size = 3.5
+    ) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(y = "Proporção", x = df %>%
+      select({{ v }}) %>%
+      names()) +
+    theme(plot.title = element_text(hjust = 0.5, size = 10))
+}
+
+significancia_covariaveis <- function(df, dist, ...){
+  mc <- match.call(expand.dots = FALSE)
+  call_args <- mc$...
+  name <- call_args |> unlist()
+  fit<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist=dist)
+  pvalores = matrix(ncol = 2, nrow = length(name)) |> data.frame() |>
+    select(Variaveis = X1, Pvalores = X2)
+  j = 1
+  for(i in name){
+    v1 = df |> select( {{i}} ) |> unlist()
+    fit_covariavel<-survreg(Surv(TEMPO,CENSURA)~v1, data = df, dist= dist)
+    pvalores[j,1] = deparse(i) 
+    pvalores[j,2] = 1-pchisq(2*(fit_covariavel$loglik[1]-fit$loglik[1]),1)
+    j = j +1  
+  }
+  pvalores
+}
 ```
+
 
 
 ```{r}
 df = readr::read_csv('sobrevivencia.csv')
 ```
 
+# Análise Descritiva
+
+```{r}
+df |> 
+  slice(1:5)
+```
+
+```{r}
+mypdf1::pdf1_summary(df) |>
+  mypdf1::pdf1_tbl("Descrição das variáveis não categóricas")
+```
 
 
 ```{r}
-df = df |> filter(TEMPO != 0) |> mutate(INGRESSO = as.factor(INGRESSO),
+bar_plot(df,ANO_INGRESSO) + 
+  bar_plot(df,ANO_EVASAO)
+```
+
+```{r}
+bar_plot(df, ID_SEXO) +
+  bar_plot(df, ID_ETNIA)
+```
+
+```{r}
+bar_plot(df, INGRESSO) +
+  bar_plot(df, COTA)
+```
+
+```{r}
+bar_plot(df, CHAMADA) +
+  bar_plot(df, TURNO_CURSO) + 
+  bar_plot(df, DURACAO)
+```
+
+```{r}
+bar_plot(df, NOME_CURSO_AJUSTADO)
+```
+
+
+```{r}
+df = df |> filter(TEMPO != 0, SITUACAO != 'Desistência') |> mutate(INGRESSO = as.factor(INGRESSO),
                                         COTA = as.factor(COTA), 
                                         CHAMADA = as.factor(CHAMADA),
                                         NOME_CURSO_AJUSTADO = 
                                           as.factor(NOME_CURSO_AJUSTADO),
                                         TURNO_CURSO = as.factor(TURNO_CURSO),
-                                        ID_SEXO = as.factor(ID_SEXO),
-                                        ID_ETNIA = as.factor(ID_ETNIA))
-fitg<-flexsurvreg(Surv(TEMPO,CENSURA)~1, data = df, dist='gengamma')
-fitg
-fite<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist='exponential')
-fite
-fitw<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist='weibull')
-fitw
-fitln<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist='lognormal')
-fitln
+                                        ID_SEXO = 
+                                          forcats::fct_recode(factor(ID_SEXO), 'Masculino' = '1', 
+                                                                    'Feminino' = '2'),
+                                        ID_ETNIA = forcats::fct_recode(
+                                          factor(ID_ETNIA), 'Branca' = '1', 
+                                          'Preta' = '2', 'Amarela' = '3', 
+                                          'Parda' = '4', 'Indígena' = '5',
+                                          'Sem informação' = '6'))
+```
 
+## Sobrevivência por Kaplan-Meier
+
+```{r}
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~1, data = df)
+autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~ID_SEXO, data = df)
+autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~ID_ETNIA, data = df |> 
+                     filter(!ID_ETNIA %in% c('Amarela', 'Indígena', 
+                                             'Sem informação')))
+autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~ID_ETNIA, data = df |> 
+                     filter(ID_ETNIA %in% c('Amarela', 'Indígena', 
+                                             'Sem informação')))
+autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~INGRESSO, data = df |>
+                     filter(INGRESSO %in% c('SiSU', 'Vestibular', 'Reingresso',
+                                            'Processo Seletivo Seriado')))
+autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~INGRESSO, data = df |>
+                     filter(INGRESSO %in% c('Transferências', 'Convênios', 
+                                            'Refugiados')))
+autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~COTA, data = df |>
+                     filter(COTA %in% c('Universal', 'Escola Pública', 
+                                            'Racial', 'Social')))
+autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~COTA, data = df |>
+                     filter(COTA %in% c('PCD',
+                                        'Sem informação', 'Social e PCD',
+                                        'Social e Racial')))
+autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~CHAMADA, data = df)
+autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+
+```
+
+# Seleção do modelo
+
+```{r}
+fitg<-flexsurvreg(Surv(TEMPO,CENSURA)~1, data = df, dist='gengamma')
+fite<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist='exponential')
+fitw<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist='weibull')
+fitln<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist='lognormal')
 p.valore= 1-pchisq(2*(fitg$loglik[1]-fite$loglik[1]),2)
 p.valorw= 1-pchisq(2*(fitg$loglik[1]-fitw$loglik[1]),1)
 p.valorln= 1-pchisq(2*(fitg$loglik[1]-fitln$loglik[1]),1)
@@ -93,120 +211,190 @@ p.valorew = 1-pchisq(2*(fitw$loglik[1]-fite$loglik[1]),1)
 
 
 ```{r}
+fit_inicial <- survfit(Surv(TEMPO,CENSURA)~1, data = df)
+ekm_inicial <- fit_inicial$surv %>% 
+  data.frame(sobrevivencia=.) %>%
+    mutate(tempo = fit_inicial$time)
+```
 
+```{r ct, fig.cap="Linearização do modelos paramétricos para o dados da Formação dos alunos do CT"}
+grafico(ekm_inicial, -log(sobrevivencia), "Exponencial")  +
+grafico(ekm_inicial, log(-log(sobrevivencia)), 
+         "Weibull", log(tempo))  +
+grafico(ekm_inicial, -qnorm(sobrevivencia), 
+         "Log-normal", log(tempo))  
 ```
 
 
 
 ```{r}
-######################################
-##### Escolha da distribui��o ########
-######################################
-ekm1<-survfit((Surv(df$TEMPO,df$CENSURA)~1))
-summary(ekm1)
-autoplot(ekm1)
+alphae = exp(fite$coef)
+alphaw = exp(fitw$coef)
+gamaw = 1/fitw$scale
+mu = fitln$coeff
+sigma = fitln$scale
+ekm_inicial <- ekm_inicial %>% 
+          mutate(exponencial = exp(-tempo/alphae),
+                 weibull = exp(-(tempo/alphaw)^gamaw),
+                 log_normal =pnorm((-log(tempo)+ mu)/ sigma))
+```
 
-st1<-ekm1[1]$surv
-time1<-ekm1[1]$time
-invst1<-qnorm(st1)
-st2<-ekm1[2]$surv
-time2<-ekm1[2]$time
-invst2<-qnorm(st2)
-
-### M�todo da lineariza��o da sobreviv�ncia ####
-par(mfrow=c(1,3))
-plot(time1, -log(st1), pch=16, xlab="tempos", ylab="-log(S(t))",
-     main="Exponencial")
-points(time2, -log(st2))
-legend(100, 0.6, pch=c(16,1), c("Ag+","Ag-"), bty="n")
-
-plot(log(time1), log(-log(st1)), pch=16, xlab="log(tempos)", 
-     ylab="log(-log(S(t)))", main="Weibull")
-points(log(time2), log(-log(st2)))
-legend(3, -1.5, pch=c(16,1), c("Ag+","Ag-"), bty="n")
-
-plot(log(time1), invst1,pch=16, xlab="log(tempos)", 
-     ylab=expression(Phi^-1*(S(t))), main = "Log-normal")
-points(log(time2), invst2)
-legend(0.5,-1, pch=c(16,1), c("Ag+","Ag-"), bty="n")
+```{r ct2, fig.cap="Sobrevivência de Kaplan-Meier vs Sobrevivência dos modelos paramétricos da Formação dos alunos do CT"}
+grafico(ekm_inicial, sobrevivencia, "Exponencial", exponencial)  +
+grafico(ekm_inicial, sobrevivencia, 
+         "Weibull", weibull)  +
+grafico(ekm_inicial, sobrevivencia, 
+         "Log-normal", log_normal)  
 ```
 
 
 ```{r}
-###################################################
-############# Teste de hip�teses ##################
-###################################################
-# H0 : O modelo de interesse � adequado
-# H1 : O modelo n�o � adequado
-fitg<-flexsurvreg(Surv(temp,cens)~1, dist='gengamma')
-fitg
-fite<-survreg(Surv(temp,cens)~1, dist='exponential')
-fite
-fitw<-survreg(Surv(temp,cens)~1, dist='weibull')
-fitw
-fitln<-survreg(Surv(temp,cens)~1, dist='lognormal')
-fitln
-
-trv=2*(fitw$loglik[2]-fite$loglik[2])
-pvalor=1-pchisq(trv, 1)
-
-p.valore= 1-pchisq(2*(fitg$loglik[1]-fite$loglik[1]),2)
-p.valorw= 1-pchisq(2*(fitg$loglik[1]-fitw$loglik[1]),1)
-p.valorln= 1-pchisq(2*(fitg$loglik[1]-fitln$loglik[1]),1)
-
-
-teste <- function(df, dist, ...){
-  mc <- match.call(expand.dots = FALSE)
-  call_args <- mc$...
-  name <- call_args |> unlist()
-  fit<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist=dist)
-  pvalores = vector(mode='logical', length(name))
-  j = 1
-  for(i in name){
-    v1 = df |> select( {{i}} ) |> unlist()
-    fit_covariavel<-survreg(Surv(TEMPO,CENSURA)~v1, data = df, dist= dist)
-    pvalores[j]= 1-pchisq(2*(fit_covariavel$loglik[2]-fit$loglik[2]),1)
-    j = j +1  
-  }
-  pvalores
-}
-
-
-# Adicionar covari�veis ao modelo selecionado
-fit2<-survreg(Surv(temp,cens)~lwbc, dist='exponential')
-fit2
-fit3<-survreg(Surv(temp,cens)~grupo, dist='exponential')
-fit3
-fit4<-survreg(Surv(temp,cens)~lwbc + grupo, dist='exponential')
-fit4
-fit4w<-survreg(Surv(temp,cens)~lwbc + grupo, dist='weibull')
-fit4w
-
-
-p.valori= 1-pchisq(2*(fit4w$loglik[2]-fit4$loglik[2]),1)
-
-
-
-fit5<-survreg(Surv(temp,cens)~lwbc + grupo+lwbc*grupo, dist='exponential')
-fit5
-summary(fit5)
-summary(fit4)
-
-TRV1=2*(fit5$loglik[2]-fit4$loglik[2])
-TRV2=2*(fit2$loglik[2]-fite$loglik[2])
-TRV3=2*(fit4$loglik[2]-fit2$loglik[2])
-
-p.valori= 1-pchisq(2*(fit5$loglik[2]-fit4$loglik[2]),1)
-p.valorx1= 1-pchisq(2*(fit2$loglik[2]-fite$loglik[2]),1)
-p.valorx2x1= 1-pchisq(2*(fit4$loglik[2]-fit2$loglik[2]),1)
-
-m=matrix(c(TRV1, TRV2, TRV3, p.valori, p.valorx1, p.valorx2x1), ncol=2)
-round(m, 3)
-
-X=cbind(1, lwbc, grupo)
-
-beta=fit4$coefficients
+data.frame(Comparacoes = c('Exponencial - Gamma Generalizada',
+                           'Weibull - Gamma Generalizada',
+                           'Log-Normal - Gamma Generalizada',
+                           'Exponencial - Weibull'),
+           pvalores = c(p.valore, p.valorw, p.valorln, p.valorew)) %>%
+  mypdf1::pdf1_tbl('Seleção do modelo')
 ```
 
 
+```{r}
+significancia_covariaveis(df, 'lognormal', ANO_INGRESSO, ID_SEXO, ID_ETNIA,
+                          INGRESSO, COTA, CHAMADA, NOME_CURSO_AJUSTADO,
+                          DURACAO)
+```
+
+
+
+```{r}
+df1 = df |> mutate(ID_ETNIA = factor(ID_ETNIA, c('Sem informação','Branca', 'Preta', 'Amarela', 
+                                                'Parda', 'Indígena')),
+                   INGRESSO = factor(INGRESSO, c("SiSU","Refugiados","Mobilidade Acadêmica",
+                                                 "Convênios", 
+                                                 "Processo Seletivo Seriado", 
+                                                 "Reingresso",
+                                                 "Seleção",  
+                                                 "Transferências",
+                                                 "Vestibular")),
+                   COTA = factor(COTA, c("Universal", "Sem informação", "Escola Pública", 
+                                         "PCD", "Racial", "Racial e PCD", 
+                                         "Social", "Social e PCD",
+                                         "Social e Racial", 
+                                         "Social, Racial e PCD")),
+                   CHAMADA = factor(CHAMADA, c("Sem informação", "Chamada", 
+                                               "Listão")),
+                   NOME_CURSO_AJUSTADO = factor(NOME_CURSO_AJUSTADO,
+                                                c("Engenharia de Telecomunicações",
+                                                  "Arquitetura e Urbanismo/CT",
+                                                  "Ciência da Computação", 
+                                                  "Engenharia Acústica", 
+                                                  "Engenharia Aeroespacial",
+                                                  "Engenharia Civil",
+                                                  "Engenharia de Computação",
+                                                  "Engenharia de Controle e Automação",
+                                                  "Engenharia de Produção", 
+                                                  "Engenharia Elétrica/CT",
+                                                  "Engenharia Mecânica/CT",
+                                                  "Engenharia Química",
+                                                  "Engenharia Sanitária e Ambiental/CT",
+                                                  "Sistemas de Informação/CT"))) |>
+  mutate(ID_ETNIA = forcats::fct_recode(ID_ETNIA, "Outros" = "Sem informação", 
+                                        "Outros" = "Amarela",
+                                        "Outros" = "Indígena",
+                                        "Outros" = "Parda"),
+         INGRESSO = forcats::fct_recode(INGRESSO, "Vestibular, Convênios e PS" = 
+                                          "Convênios", 
+                                        "Outros" = "Reingresso",
+                                        "Outros" = "Seleção",
+                                        "Outros" = "SiSU",
+                                        "Outros" = "Mobilidade Acadêmica",
+                                        "Refugiados ou Transferência" = 
+                                          "Refugiados",
+                                        "Refugiados ou Transferência" = 
+                                          "Transferências",
+                                        "Vestibular, Convênios e PS" = 
+                                          "Vestibular",
+                                        "Vestibular, Convênios e PS" = 
+                                          "Processo Seletivo Seriado"),
+         NOME_CURSO_AJUSTADO = forcats::fct_recode(NOME_CURSO_AJUSTADO, 
+                                                   "Engenharia de Produção ou Controle e Automatação" = 
+                                                   "Engenharia de Controle e Automação",
+                                                   "Engenharia de Produção ou Controle e Automatação" = 
+                                                   "Engenharia de Produção",
+                                                   "Engenharia Química, Sanitária, Acústica e Computação" = 
+                                                   "Engenharia Química",
+                                                   "Engenharia Química, Sanitária, Acústica e Computação" = 
+                                                   "Engenharia de Computação",
+                                                   "Engenharia Química, Sanitária, Acústica e Computação" = 
+                                                   "Engenharia Sanitária e Ambiental/CT",
+                                                   "Engenharia Química, Sanitária, Acústica e Computação" = 
+                                                   "Engenharia Acústica",
+                                                   "Ciência da Computação ou Sistemas de Informação" = 
+                                                   "Ciência da Computação",
+                                                   "Ciência da Computação ou Sistemas de Informação" = 
+                                                   "Sistemas de Informação/CT"),
+         COTA = forcats::fct_recode(COTA, "PCD" = "Racial e PCD",
+                                    "PCD" = "Social e PCD",
+                                    "PCD" = "Social, Racial e PCD",
+                                    "Universal" = "Escola Pública",
+                                    "Social e Racial" = "Racial",
+                                    "Social e Racial" = "Social",
+                                    "Universal" = "Sem informação"))
+                                    #"Sem informação" = "Social",
+                                    #"Sem informação" = "Universal"))
+fit1<-survreg(Surv(TEMPO,CENSURA)~ ID_SEXO + COTA + INGRESSO + ID_ETNIA +
+                 CHAMADA + NOME_CURSO_AJUSTADO + DURACAO,  
+              data = df1,  dist='lognormal')
+summary(fit1)
+```
+
+# Análise de Resíduo
+
+```{r}
+X =  model.matrix(~ID_SEXO + COTA + INGRESSO + ID_ETNIA + CHAMADA + 
+                       NOME_CURSO_AJUSTADO +  DURACAO, data = df1)
+beta = fit1$coefficients
+sigmahat = fit1$scale
+res = (log(df$TEMPO)-X%*%(beta))/sigmahat #Modelo Log-normal
+resid = exp(res)
+ekm <- survfit(Surv(resid, CENSURA)~1, data = df, type=c("kaplan-meier"))
+resid = ekm$time
+sln = pnorm(-log(resid))
+# Para outras distribui��es obter as express�es do lambdahat= -log Shat
+par(mfrow=c(1,2))
+plot(ekm$surv,sln, lty=c(1,1), xlab="S(ei*) Kaplan-Meier", 
+     ylab="S(ei*) Log-normal padrão")
+plot(ekm, conf.int = F, mark.time = F, xlab = "Resíduos (ei*)", 
+     ylab = 'Sobrevivência estimada', pch = 16)
+lines(resid, sln, lty=3)
+legend(8, 1, lty=c(1,2), legend=c("Kaplan-Meier","Log-normal padrão"), 
+      bty="n", cex=0.8)
+
+#Resíduos Cox-Snell
+
+ei <- -log(1-pnorm(res))
+ekm1 <- survfit(Surv(ei,df$CENSURA)~1)
+t <- ekm1$time
+st <- ekm1$surv
+sexp <- exp(-t)
+plot(st, sexp, xlab="S(ei): Kaplan-Meier", ylab= "S(ei): Exponencial(1)", pch=16)
+plot(ekm1, conf.int = F, mark.time = F, xlab = 'Resíduos de Cox-Snell', 
+     ylab = 'Sobrevivência estimada')
+lines(t, sexp, lty=4)
+legend(3, 1, lty=c(1,4), legend=c("Kaplan-Meier","Exponencial padrão"), 
+      bty="n", cex=0.8)
+
+
+# res�duo padronizado 
+resp= log(df$TEMPO)-X%*%(beta)
+par(mfrow=c(1,1))
+plot(resp)
+
+# res�duo Deviance
+d=sign(-m)*sqrt(-2*(m+cens*log(cens-m)))
+rd=resid(fit4, type="deviance")
+plot(d)
+plot(rd)
+
+```
 
