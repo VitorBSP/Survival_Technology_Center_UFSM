@@ -1,7 +1,7 @@
 ---
-title: "title"
-author: "author"
-abstract: "abstract"
+title: "Estudo do tempo de conclusão dos cursos de graduação no CT-UFSM"
+author: "Vítor Pereira"
+abstract: "Nesse presente trabalho para a disciplina de Análise de Sobrevivência do Curso Estatística da UFSM, buscamos estudar e entender como variáveis sociais, econômicas e culturais afetam o tempo de formação dos alunos do CT, também da UFSM. Visando encontrar quais característicam tendem a aumentar ou diminuir o tempo de permanência até a formação dos estudantes, para isso utilizaremos técnicas para dados censurados, para captarmos informações dadas por dados incompletos de uma maneira sistemática e conhecida, na análise a censura é dada, por aqueles alunos que ainda estão realizando os cursos de graduação e para adequarmos essas observações para nossa análise utilizaremos os modelos de Tempo de Vida Acelerado ou Regressão de Cox."
 header-includes:
    - \usepackage[brazil]{babel}
    - \usepackage{bm}
@@ -37,17 +37,6 @@ library(patchwork)
 ```
 
 ```{r functions}
-# null_models <- functions(df){
-#   p_null_models = matrix(nrow = 4, ncol = 2)
-#   
-#   j = 1
-#   for(i in c('gengamma', 'exponential', 'weibull', 'lognormal')){
-#     if(i == 'gengamma'){
-#       p_null_models[j,2] = 
-#     }
-#   }
-#   
-  
 grafico <- function(data, v1, title, v2 = tempo){
   ggplot(data) +
     geom_point(aes({{v2}},{{v1}})) +
@@ -55,13 +44,15 @@ grafico <- function(data, v1, title, v2 = tempo){
 }
 
 bar_plot <- function(df, v) {
+  mycolors = c(RColorBrewer::brewer.pal(name="Set2", n = 8), 
+             RColorBrewer::brewer.pal(name="Paired", n = 6))
   ggplot(df, aes(
     x = {{ v }},
     y = prop.table(stat(count)),
     fill =  {{ v }},
     label = scales::percent(prop.table(stat(count)))
   )) +
-    geom_bar(position = "dodge", color = "black") +
+    geom_bar(position = "dodge") +
     geom_text(
       stat = "count",
       position = position_dodge(.9),
@@ -69,10 +60,31 @@ bar_plot <- function(df, v) {
       size = 3.5
     ) +
     scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(values = mycolors) +
     labs(y = "Proporção", x = df %>%
       select({{ v }}) %>%
       names()) +
-    theme(plot.title = element_text(hjust = 0.5, size = 10))
+    theme(plot.title = element_text(hjust = 0.5, size = 10),
+          legend.position="none")
+}
+
+bar_plot2 <- function(df, v) {
+  mycolors = c(RColorBrewer::brewer.pal(name="Set2", n = 8), 
+             RColorBrewer::brewer.pal(name="Paired", n = 6))
+  ggplot(df, aes(
+    x = {{ v }},
+    y = prop.table(stat(count)),
+    fill =  {{ v }},
+    label = scales::percent(prop.table(stat(count)))
+  )) +
+    geom_bar(position = "dodge") +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(values = mycolors) +
+    labs(y = "Proporção", x = df %>%
+      select({{ v }}) %>%
+      names()) +
+    theme(plot.title = element_text(hjust = 0.5, size = 10),
+          legend.position="none")
 }
 
 significancia_covariaveis <- function(df, dist, ...){
@@ -87,12 +99,17 @@ significancia_covariaveis <- function(df, dist, ...){
     v1 = df |> select( {{i}} ) |> unlist()
     fit_covariavel<-survreg(Surv(TEMPO,CENSURA)~v1, data = df, dist= dist)
     pvalores[j,1] = deparse(i) 
-    pvalores[j,2] = 1-pchisq(2*(fit_covariavel$loglik[1]-fit$loglik[1]),1)
+    pvalores[j,2] = 1-pchisq(2*(fit_covariavel$loglik[2]-fit$loglik[2]),1)
     j = j +1  
   }
   pvalores
 }
+
+
+
+#survdiff(Surv(TEMPO,CENSURA)~ID_SEXO, data = df,rho=0) -> a
 ```
+
 
 
 
@@ -100,103 +117,391 @@ significancia_covariaveis <- function(df, dist, ...){
 df = readr::read_csv('sobrevivencia.csv')
 ```
 
-# Análise Descritiva
+# Introdução
 
-```{r}
-df |> 
-  slice(1:5)
+Esse estudo é fruto de uma parceria entre o curso de Bacharelado em Estatística
+e a Pró-Reitoria de Planejamento (PROPLAN) da UFSM, sendo parte avaliativa da 
+disciplina de Análise de Sobrevivência e parte integrante da bolsa na 
+Coordenadoria de Planejamento Informacional (COPLIN) buscando estudar os efeitos
+de covariáveis presentes no banco de dados de 2010 a 2022 da UFSM no tempo para 
+a formação de alunos do Centro de Tecnologia (CT).
+
+Para isso pretendemos empregar técnicas utilizadas na ánalise de sobrevivência
+como Modelos de Tempo de Vida Acelerado e Regressão de Cox que possibilitam 
+integrar covariáveis para modelar o tempo para a graduação do aluno, assim 
+conseguimos integrar covariáveis que tragam informações sociais e econõmicas e 
+a possibilidade de incorporar dados censurados, assim incluindo a informação
+fornecida por dados incompletos, i.e., observações que ainda não alcançaram o 
+evento de interesse, no caso do presente trabalho a conclusão do curso, 
+mas temos a informação que o aluno demorará, pelo menos o tempo que está para se 
+formar, assim alunos em situação de permanência são os nossos dados censurados 
+nesse estudo.
+
+Desse modo, estamos desconsiderando as observações de alunos que evadiram dos 
+cursos de graduação, para considerá-los precisaríamos de outra abordagem, a de 
+riscos competitivos, simplificando, são situações em que as causas de falhas 
+competem entre si, pois não podem ocorrer juntas, ou seja, se um aluno evadir de 
+um curso de graduação no CT, nunca desenvolverá o evento de interesse, que é a 
+formação. Em estudos clínicos, riscos competitivos, também são chamados de 
+fração de cura, onde, por exemplo, buscamos estudar a reciditiva do câncer, mas 
+o paciente se cura. 
+
+Assim, esse estudo busca sugerir com técnicas estatísticas fatores 
+que diminuem ou aumentam o tempo para a formação, visando informar sobre 
+essas características dos indíviduos em estudo, aos responsáveis,  
+para receberam amparo e apoio para teram a formação no tempo estabelecido, 
+igualmente, buscamos comparar com outrose studos desenvolvidos na disciplina e 
+em outras referências teóricas presente. 
+
+# Conhecendo os dados
+
+Toda boa análise estatística, deve-se começar de sua parte mais básica e 
+fundamental, os dados, por isso realiza-se nessa seção uma análise descritiva
+simples, mas informativa das variáveis presentes na nossa base de dados, na 
+Tabela \@ref(tab:banco) podemos ter um vislumbre das observações iniciais do 
+banco
+
+```{r banco}
+df |> select(-ANO_EVASAO, - SIGLA_CENTRO, - TURNO_CURSO, -SITUACAO) |>
+  rename(SEXO = ID_SEXO, ETNIA = ID_ETNIA, CURSO = NOME_CURSO_AJUSTADO,
+         INICIO = ANO_INGRESSO) |>
+  slice(2:6) |>
+  mypdf1::pdf1_tbl("Observações Iniciais do Banco") |>
+  kableExtra::add_footnote(c("Algumas variáveis sofreram alterações no nome para melhorar visualização da tabela"))
 ```
 
-```{r}
+No entanto, além de visualizar as principais variáveis do banco, também devemos
+construir algumas métricas para resumir e verificar sua distribuição e 
+concentração, assim a Tabela \@ref(tab:resumo) nos traz informações quanto as 
+variáveis "númericas".
+
+```{r resumo}
 mypdf1::pdf1_summary(df) |>
-  mypdf1::pdf1_tbl("Descrição das variáveis não categóricas")
+  mypdf1::pdf1_tbl("Descrição das Variáveis Não-categóricas") |>
+  kableExtra::add_footnote(c("Variáveis inicialmente tratadas como númerica pelo SoftWare R"))
 ```
+
+A Tabela \@ref(tab:resumo) possui informações valiosas, por exemplo temos 3203 
+observações censuradas, pois temos esse número de `NA`'s na variável `ANO_EVASAO`,
+ID_SEXO e ID_ETNIA estão sendo tratados como variáveis númericas, quando são 
+categórias, assim precisamos mudar sua tipificação e analisar as variáveis 
+categóricas.
 
 
 ```{r}
-bar_plot(df,ANO_INGRESSO) + 
-  bar_plot(df,ANO_EVASAO)
+df = df |> mutate(INGRESSO = as.factor(INGRESSO),COTA = as.factor(COTA), 
+                  CHAMADA = as.factor(CHAMADA), 
+                  NOME_CURSO_AJUSTADO = as.factor(NOME_CURSO_AJUSTADO), 
+                  TURNO_CURSO = as.factor(TURNO_CURSO), 
+                  ID_SEXO = forcats::fct_recode(factor(ID_SEXO), 
+                                                'Masculino' = '1', 
+                                                'Feminino' = '2'), 
+                  ID_ETNIA = forcats::fct_recode( factor(ID_ETNIA), 
+                                                  'Branca' = '1', 'Preta' = '2', 
+                                                  'Amarela' = '3', 'Parda' = '4', 
+                                                  'Indígena' = '5', 
+                                                  'Sem informação' = '6'))
 ```
 
-```{r}
-bar_plot(df, ID_SEXO) +
-  bar_plot(df, ID_ETNIA)
+## Descrição das Variáveis
+
+Para melhorar a compreensão dos trabalhos, temos uma breve da descrição de cada 
+variável e suas categórias (se houverem):
+
+* **ANO_INGRESSO**: Ano de ingresso no curso de graduação do CT, defini o 
+tempo de ínicio da variável tempo, o objetivo de interesse no estudo.
+  
+* **ANO_EVASAO**: Ano de saída do curso, defini o fim da variável tempo ou caso
+esteja incompleta, a sua censura, caso não exista conclusão ou permanência no 
+curso, a observação será desconsiderada.
+  
+* **ID_SEXO**: Feminino ou Masculino.
+
+* **ID_ETNIA**: Sem informação, Branca, Parda, Preta, Indígena ou Amarela.
+
+* **INGRESSO**: Forma de Ingresso na graduação: Transferência, SiSU, Vestibular,
+Convênios, Processo Seletivo Seriado, Reingresso, Mobilidade Acadêmica, 
+Refugiados, Seleção ou Outros.
+
+* **COTA**: Cota utilizada para o ingresso no curso, com toda cota social, racial
+ou PCD, também sendo de Escola Pública, assim tem-se: Sem informação, Universal,
+Racial, Social, PCD, Escola Pública, Social e Racial, Racial e PCD, Social e PCD ou
+Social, Racial e PCD.
+
+* **CHAMADA**: Se o aluno entrou pela primeira chamada (Listão) ou Chamadas Orais
+(Chamada): Sem informação, Listão ou Chamada.
+
+* **SITUACAO** Situação do aluno quanto a conclusão/evasão no curso: Permanência,
+Desistência, Conclusão ou Falecido.
+
+* **NOME_CURSO_AJUSTADO** Nomes de todos os cursos de graduação presentes no CT:
+Engenharia Civil, Engenharia Acústica, Engenharia Elétrica/CT             
+Engenharia Mecânica/CT, Sistemas de Informação/CT, Engenharia Aeroespacial            
+Ciência da Computação, Engenharia de Produção, Engenharia de Controle e Automação 
+Engenharia Química, Engenharia Sanitária e Ambiental/CT Engenharia de Computação           
+Arquitetura e Urbanismo/CT ou Engenharia de Telecomunicações.  
+
+* **TURNO_CURSO** Todos os cursos do CT presentes no banco são Diurnos.
+
+* **DURACAO** Os cursos tem duração de 4 ou 5 anos.
+
+* **TEMPO** Tempo até o evento de interesse ou censura, varia de 0 a 12.
+
+* **CENSURA** Verifica se o indivíduo está realizando a formação ou concluiu, 
+para podermos adicionar as informações dos dados censurados.
+
+## Visualização dos Dados
+
+Para ampliar significativamente nossa compreensão sobre os nossos dados, devemos
+fazer a análise mais simples, mas muito informativa, a análise gráfica, nessa 
+seção vamos apenas apresentar gráficos com a quantidade de cada covariável e 
+analisar as características mais relevantes, nessa parte inicial ainda não serão 
+retirados os estudantes desistentes.
+
+Para a Figura \@ref(fig:ano), percebe-se uma característica, inata do corte
+de tempo que estamos analisando, como o banco que utilizamos é de 2010 a 2022, 
+tem-se que a evasão, aumenta em forma de escada até 2019, o que deve-se pelos 
+alunos de 2010 e 2011, começarem a se formar por 2015 e 2016, no entanto, os que 
+não concluíram o curso nesse período e não desistiram, foram concluído o curso
+posteriormente antes de jubilar, assim como pelomaior ingresso de alunos após 
+2014, o que aumenta tanto a desistência, quanto conclusão. Em 2022, há poucos 
+ingressos, pois só existem dados do SiSU do primeiro semestre (2022/1). 
+
+```{r ano, fig.width = 8, fig.height= 6.5, fig.cap='Proporção do ano de ingresso e evasão dos Alunos do CT'}
+(df |> mutate(ANO_INGRESSO = as.factor(ANO_INGRESSO)) |>
+bar_plot(ANO_INGRESSO) + theme(legend.position="none")) /
+(bar_plot(df |> 
+             filter(ANO_EVASAO == ANO_EVASAO) |>
+             mutate(ANO_EVASAO = as.factor(ANO_EVASAO)), ANO_EVASAO) + 
+  theme(legend.position="none"))
 ```
 
-```{r}
-bar_plot(df, INGRESSO) +
-  bar_plot(df, COTA)
+Temos a confirmação do estereótipo dos alunos do CT, com a Figura \@ref(fig:sexo),
+sendo composto em sua enorme maioria, por alunos homens e brancos. Pardos, 
+Indígenas e Pretos estão em menor número que mulheres historicamente, apesar das
+ações afirmativas.
+
+```{r sexo, fig.cap='Proporção do Sexo e Etnia dos Alunos do CT de 2010 a 2022', fig.height= 5}
+bar_plot(df, ID_SEXO) + bar_plot(df |> 
+            mutate(ID_ETNIA = 
+                     forcats::fct_infreq(ID_ETNIA)), ID_ETNIA) + 
+  theme(axis.text.x = element_text(angle = 20, size = 10, hjust = 1))
 ```
 
-```{r}
+Em relação a forma de ingresso e cota, temos que SiSU e Vestibular são realmente
+as formas preponderantes de entrada na faculdade, com o SiSU mesmo obrigatório
+a menos anos que o Vestibular no banco de dados, já possuindo a maior parte dos 
+alunos, Processo Seletivo Seriado e Tranferências também ocupam parcela 
+importante da forma de ingresso, de acordo com a Figura \@ref(fig:ingresso).
+Para as cotas, temos a cota Universal com percentual maior que $50$%, seguido
+pela cota Racial, Social, Escola Pública e Sem informação próximos aos 10%, as 
+cotas para PCD não somam 1%. 
+
+```{r ingresso, fig.cap='Proporção da forma de ingresso e cota dos Alunos do CT de 2010 a 2022'}
+bar_plot2(df |> mutate(INGRESSO = forcats::fct_infreq(INGRESSO)), INGRESSO) + 
+  coord_flip() +  
+  bar_plot2(df |> mutate(COTA = forcats::fct_infreq(COTA)), COTA) + coord_flip()
+```
+
+Para a descrição técnica dos cursos, temos que a maior parte dos alunos entra 
+pelo Listão e $5$% não tem informação, quanto a duração dos cursos, tem-se
+que $87$% dura 5 anos, conforme a Figura \@ref(fig:duracao).
+
+```{r duracao, fig.cap='Proporção da chamada de entrada dos Alunos do CT de 2010 a 2022 e proporção de Duração dos cursos do CT'}
 bar_plot(df, CHAMADA) +
-  bar_plot(df, TURNO_CURSO) + 
-  bar_plot(df, DURACAO)
+  bar_plot(df |> mutate(DURACAO = as.factor(DURACAO)), DURACAO)
 ```
 
-```{r}
-bar_plot(df, NOME_CURSO_AJUSTADO)
+Nota-se que a distribuição dos alunos no cursos do CT são é simétrica, com grande
+parte ficando nas engenharias originais: Engenharia Civil, Química, Elétrica e 
+Mecânica. A Figura \@ref(fig:cursos), também demonstra que Engenharia de Produção
+(curso jovem, 2015), está entre os mais populares, assim como Engenharia 
+Aeroespacial (2018), possui um número relevante de alunos.
+
+```{r cursos, fig.cap='Proporção dos Alunos do CT de 2010 a 2022 em cada curso de graduação disponível do Centro'}
+bar_plot2(df |> 
+            mutate(NOME_CURSO_AJUSTADO = 
+                     forcats::fct_infreq(NOME_CURSO_AJUSTADO)), 
+          NOME_CURSO_AJUSTADO) + coord_flip()
 ```
 
-
+Para estudar de forma coerente o tempo para conclusão como um tempo de 
+sobrevivência, vamos remover as censuras no tempo 0 e os alunos que efetivamente
+evadiram da faculdade.
 ```{r}
-df = df |> filter(TEMPO != 0, SITUACAO != 'Desistência') |> mutate(INGRESSO = as.factor(INGRESSO),
-                                        COTA = as.factor(COTA), 
-                                        CHAMADA = as.factor(CHAMADA),
-                                        NOME_CURSO_AJUSTADO = 
-                                          as.factor(NOME_CURSO_AJUSTADO),
-                                        TURNO_CURSO = as.factor(TURNO_CURSO),
-                                        ID_SEXO = 
-                                          forcats::fct_recode(factor(ID_SEXO), 'Masculino' = '1', 
-                                                                    'Feminino' = '2'),
-                                        ID_ETNIA = forcats::fct_recode(
-                                          factor(ID_ETNIA), 'Branca' = '1', 
-                                          'Preta' = '2', 'Amarela' = '3', 
-                                          'Parda' = '4', 'Indígena' = '5',
-                                          'Sem informação' = '6'))
+df = df |> filter(TEMPO != 0, SITUACAO != 'Desistência')
 ```
 
-## Sobrevivência por Kaplan-Meier
+# Princípio da Análise de Sobrevivência
 
-```{r}
+Precisa-se inicialmente conceituar e fundamentar os elementos primordiais da 
+análise de sobrevivência, o tempo de falha utilizado nesse trabalho é "Tempo até
+a conclusão da graduação dos alunos do CT", assim temos que a a função de 
+sobrevivência é a probabilidade do discente não se formar até o tempo $t$. O 
+tempo $t$ é definido como ANO_EVASAO - ANO_INGRESSO, caso ANO_EVASAO seja `NA`,
+temos um dado censurado, e é substítuido, pelo ano atual, 
+`r as.numeric(format(Sys.time(), '%Y'))`. Relembrando, que retiramos que as 
+observações que evadiram efetivamente, pois não tem como atingir o tempo de 
+falha, i.e., se o aluno evadir, não irá se formar. 
+
+
+Tem-se que uma das propriedades da função de sobrevivência é convergir para 0
+com o tempo tendendo para infinito, assim como é observado na Figura 
+\@ref(fig:ek), o estimador de Kaplan-Meier, não tem necessariamente essa 
+propriedade, mas nota-se a tendência decrescente, assim pode-se se dizer que
+conforme o tempo aumento, diminui a probabilidade do discente não se formar.
+
+```{r ek, fig.cap='Função de Sobrevivência dada pelo estimador de Kaplan-Meier sem considerar covariáveis'}
 fit_ekm <- survfit(Surv(TEMPO,CENSURA)~1, data = df)
 autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+```
+
+
+```{r}
 fit_ekm <- survfit(Surv(TEMPO,CENSURA)~ID_SEXO, data = df)
-autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+p1 <- autoplot(fit_ekm, ylab='Porcentagem de conclusão') + 
+  theme(legend.title = element_blank())
+```
+
+```{r}
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~CHAMADA, data = df)
+p2 <- autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')+
+theme(legend.title = element_blank())
+```
+
+Considerando Sexo ou Chamada como covariáveis, temos que para o Sexo Feminino,
+conforme o tempo aumenta, a diferença para o sexo Masculino também aumenta, assim
+a probabilidade do acadêmico não se formar também diminui. A Figura 
+\@ref(fig:eksexo) mostra, que isso acontece para a variável Chamada, também, o
+tempo acentua a diferença entre as categorias.
+
+```{r eksexo, fig.cap='Função de Sobrevivência dada pelo estimador de Kaplan-Meier com a covariável Sexo (à esquerda) e Chamada (à direita)', fig.width = 8}
+p1 + p2
+```
+
+
+
+```{r}
 fit_ekm <- survfit(Surv(TEMPO,CENSURA)~ID_ETNIA, data = df |> 
                      filter(!ID_ETNIA %in% c('Amarela', 'Indígena', 
                                              'Sem informação')))
-autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+p1 = autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo') +
+  theme(legend.title = element_blank())
+```
+
+
+```{r}
 fit_ekm <- survfit(Surv(TEMPO,CENSURA)~ID_ETNIA, data = df |> 
                      filter(ID_ETNIA %in% c('Amarela', 'Indígena', 
                                              'Sem informação')))
-autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+p2 = autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo') +
+  theme(legend.title = element_blank())
+```
+
+Analisando a covariável Etnia, confirmamos o que intuitiva é pensado a curva 
+para não formação que fica mais abaixo é para a Etnia branca, seguido por Sem 
+Informação e posteriormente, pela etnia Parda e Preta, com Indígenas e Amarelos
+não tendo observações suficientes para a curva decrescer, como demostra a Figura 
+\@ref(fig:eketnia).
+
+```{r eketnia, fig.cap='Função de Sobrevivência dada pelo estimador de Kaplan-Meier para a covariavel Etnia', fig.width = 8}
+p1 + p2
+```
+
+
+
+```{r}
 fit_ekm <- survfit(Surv(TEMPO,CENSURA)~INGRESSO, data = df |>
                      filter(INGRESSO %in% c('SiSU', 'Vestibular', 'Reingresso',
-                                            'Processo Seletivo Seriado')))
-autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+                                            'Processo Seletivo Seriado')) |>
+                     mutate(INGRESSO = forcats::fct_recode(INGRESSO, 'PEIES' = 
+                                                "Processo Seletivo Seriado")))
+p1 =  autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo') + 
+  theme(legend.title = element_blank())
+```
+
+
+```{r}
 fit_ekm <- survfit(Surv(TEMPO,CENSURA)~INGRESSO, data = df |>
                      filter(INGRESSO %in% c('Transferências', 'Convênios', 
                                             'Refugiados')))
-autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
-
-fit_ekm <- survfit(Surv(TEMPO,CENSURA)~COTA, data = df |>
-                     filter(COTA %in% c('Universal', 'Escola Pública', 
-                                            'Racial', 'Social')))
-autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
-
-fit_ekm <- survfit(Surv(TEMPO,CENSURA)~COTA, data = df |>
-                     filter(COTA %in% c('PCD',
-                                        'Sem informação', 'Social e PCD',
-                                        'Social e Racial')))
-autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
-
-fit_ekm <- survfit(Surv(TEMPO,CENSURA)~CHAMADA, data = df)
-autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
-
+p2 = autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo') +
+  theme(legend.title = element_blank())
 ```
 
+Na Figura \@ref(fig:ekingresso), temos que as formas de ingresso que possuem 
+menores sobrevivência de não formação são: Convênios,
+Processo Seletivo Seriado (PEIES), Vestibular e Transferências, respectivamente.
+Como o SiSU é uma forma recente, temos uma curva que ainda não atinge valores
+próximos a 0.
+
+```{r ekingresso, fig.cap='Função de Sobrevivência dada pelo estimador de Kaplan-Meier para a covariavel Ingresso', fig.width = 8}
+p1 + p2
+```
+
+
+
+```{r}
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~COTA, data = df |>
+                     filter(COTA %in% c('Universal', 'Escola Pública', 
+                                            'Racial', 'Social'))) 
+
+p1 = autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo') +
+  theme(legend.title = element_blank())
+```
+
+
+```{r}
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~COTA, data = df |>
+                     filter(COTA %in% c('PCD',
+                                        'Sem informação', 
+                                        'Social e Racial')))
+p2 = autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo') +
+  theme(legend.title = element_blank())
+```
+
+Para a variável Cota, também confirmamos o pensamento imediato, as menores curvas
+são para as Cotas Universais e de Escola Pública, com a categoria Sem Informação
+sendo a mais próxima da curva das anteriores, as observações com Cota PCD 
+representam menos de $1$ dos dados e não foi possível nem ajustar a curva, 
+conforme podemos notar na Figura \@ref(fig:ekcota).
+
+```{r ekcota, fig.cap='Função de Sobrevivência dada pelo estimador de Kaplan-Meier para a covariavel Cota', fig.width = 8}
+p1 + p2
+```
+
+## Teste de Logrank
+
+Utilizado para comparar as distribuições de sobrevivência de duas amostras, assim
+conseguimos comparar se existe o efeito do grupo na curva de sobrevivência.
+$$H_0:\text{Funções de risco (taxa de falha) são iguais.}$$
+$$H_1:\text{Funções de risco são diferentes.}$$
+
+
+```{r logrank}
+data.frame(Variavel = c('ANO_INGRESSO', 'ID_SEXO', 'ID_ETNIA','INGRESSO', 'COTA',
+                        'CHAMADA', 'NOME_CURSO_AJUSTADO','DURACAO'),
+           Pvalores = c(2e-16, 3e-10, 2e-16, 2e-16, 2e-16, 2e-16, 2e-16, 0.03)) |> 
+  mutate(Pvalores = format.pval(Pvalores, 3, eps = 0.001)) |>
+   mypdf1::pdf1_tbl("P-valores do Teste de Logrank") 
+```
+
+Utilizando o teste de Logrank com nivel de significância de 5%, na Tabela 
+\@ref(tab:logrank) temos que todos os valores p-valores são menores que 0.05,
+assim há evidência para rejeitar a hipótese nula e podemos dizer que há diferenças
+entre os grupos. **No entanto o teste funciona bem sobre o pressuposto de riscos
+proporcionais, o que não ocorre, esse também é um pressuposto da Regressão de Cox,
+assim não utilizaremos esse métodos**, no entanto, possui estimação de parâmetros
+próximas ao do Modelo de Tempo de Vida Acelerado.
+
 # Seleção do modelo
+
+Nessa seção buscamos o melhor modelo paramétrico, para que possibilidade adicionar
+covariáveis para a modelagem da sobrevivência, dado que nas seções anteriores
+temos inúmeras sugestões de que as covariáveis interferem no tempo de 
+sobrevivência. Com as figuras e teste de hipótese que serão apresentadas 
+verificaremos qual o modelo paramétrico mais adequado ao conjunto de dados.
+
 
 ```{r}
 fitg<-flexsurvreg(Surv(TEMPO,CENSURA)~1, data = df, dist='gengamma')
@@ -217,6 +522,15 @@ ekm_inicial <- fit_inicial$surv %>%
     mutate(tempo = fit_inicial$time)
 ```
 
+Primeiro vamos verificar o gráfico de linearização dos modelos paramétricos, 
+buscando o modelo que possui os pontos, mais próximos a uma reta imaginária, que
+se assemelharia com a bissetriz (y = x). Isto pois estamos verificando se a 
+linearização do modelo paramétrico, condiz com uma linearização da sobrevivência
+estimada por Kaplan-Meier, assim o modelo com a linearização da sobrevivência 
+estimada mais adequada, resultará em um melhor ajuste do modelo paramétrico. Na 
+Figura \@ref(fig:ct), apenas é possível notar que o Modelo Exponencial é o que 
+possui os pontos em menor linearização.
+
 ```{r ct, fig.cap="Linearização do modelos paramétricos para o dados da Formação dos alunos do CT"}
 grafico(ekm_inicial, -log(sobrevivencia), "Exponencial")  +
 grafico(ekm_inicial, log(-log(sobrevivencia)), 
@@ -224,7 +538,6 @@ grafico(ekm_inicial, log(-log(sobrevivencia)),
 grafico(ekm_inicial, -qnorm(sobrevivencia), 
          "Log-normal", log(tempo))  
 ```
-
 
 
 ```{r}
@@ -239,6 +552,16 @@ ekm_inicial <- ekm_inicial %>%
                  log_normal =pnorm((-log(tempo)+ mu)/ sigma))
 ```
 
+O método gráfico da sobrevivência estimada por Kaplan-Meier versus sobrevivência 
+dos modelos paramétricas, também busca o modelo paramétrico mais adequado, 
+pensando novamente na linearização. Analisando se a sobrevivência dos modelos 
+probabalísticos se assemelha a do Kaplan-Meier pela linearização, pois se a 
+relação com eles fosse dada pela bissetriz (y = x), teríamos que eles são iguais, 
+então buscamos a linearidade que é dada pela bissetriz (que é a reta a 45°).  Na 
+Figura \@ref(fig:ct2), novamente só podemos  notar que o Modelo Exponencial é o 
+que possui os pontos menos lineares, formando uma sigmóide.
+
+
 ```{r ct2, fig.cap="Sobrevivência de Kaplan-Meier vs Sobrevivência dos modelos paramétricos da Formação dos alunos do CT"}
 grafico(ekm_inicial, sobrevivencia, "Exponencial", exponencial)  +
 grafico(ekm_inicial, sobrevivencia, 
@@ -247,8 +570,16 @@ grafico(ekm_inicial, sobrevivencia,
          "Log-normal", log_normal)  
 ```
 
+No entanto também, podemos utilizar um teste de hipótese para reduzir a 
+subjetividade da análise gráfica. Assim usaremos o teste de razão de 
+verossimilhanças em modelos encaixados e utilizaremos a Gama Generalizada 
+(Ou Weibull) como o modelo mais geral.
 
-```{r}
+$$H_0:\text{O modelo testado é mais adequado que o modelo Generalizado.}$$
+$$H_1:\text{O modelo testado não é mais adequado que o modelo Generalizado.}$$
+
+
+```{r trv}
 data.frame(Comparacoes = c('Exponencial - Gamma Generalizada',
                            'Weibull - Gamma Generalizada',
                            'Log-Normal - Gamma Generalizada',
@@ -257,14 +588,84 @@ data.frame(Comparacoes = c('Exponencial - Gamma Generalizada',
   mypdf1::pdf1_tbl('Seleção do modelo')
 ```
 
+Utilizando o teste de razão de verossimilhança com nivel de significância de 5%,
+na Tabela \@ref(tab:trv), temos que o único modelo que não há evidência contra
+$H_0$ é para o modelo Log-Normal, assim o escolheremos para a modelagem.
 
-```{r}
+## Seleção de covariáveis
+
+Para seleção de covariáveis no modelo foi considerado os passos sugeridos por 
+[Collett(2003)], começando com a análise individual das covariáveis, também 
+utilizando o teste de razão de verossimilhanças em modelos encaixados e assim
+a Tabela \@ref(tab:trv2) confirma o que o teste de Logrank e a análise descritiva
+sugeriram, todas as covariáveis aumentam a explicação do modelo.
+
+
+```{r trv2}
 significancia_covariaveis(df, 'lognormal', ANO_INGRESSO, ID_SEXO, ID_ETNIA,
                           INGRESSO, COTA, CHAMADA, NOME_CURSO_AJUSTADO,
-                          DURACAO)
+                          DURACAO) |> mutate(Pvalores = 
+                                               format.pval(Pvalores, 3, 
+                                                           eps = 0.001)) |>
+   mypdf1::pdf1_tbl("Testes de significância individual para cada variável")
 ```
 
+Agora iremos ajustar um modelo com todas as covariáveis, descrito pela Tabela
+\@ref(tab:cov) (apêndice), no entanto é possível notar que muitas covariáveis são não 
+significativas a 5%, assim seguiremos os próximos passos de Collett (2003) e 
+encontraremos o modelos com todas as variáveis significativas, o que será feito
+agrupando covariáveis, mudando a classe base e retirando variáveis que explicam
+variabilidades semelhantes.
 
+
+
+Começamos o ajuste do modelo mudando a classe base das variáveis categóricas,
+assim tornamos as categorias "Sem informação", a base de todas em que ela existe,
+no entanto, para a variável COTA, a categoria "Universal" se mostrou uma escolha 
+melhor à "Sem informação", para as variáveis INGRESSO e NOME_CURSO_AJUSTADO, as
+classes bases são SiSU e Engenharia de Telecomunicações, respectivamente. 
+
+Ademais, foi necessário o agrupamento de algumas classes, algumas com justificativa
+e interpretação clara, como podemos perceber pela análisde descritiva e das curvas
+de sobreviciência, outras as suas características de igualdade poderiam ser
+estudadas com mais cuidado, como a categoria Engenharia Química, Sanitária, 
+Acústica e Computação, que a categoria que engloba os cursos de Engenharia Química,
+Sanitaária e Ambiental, Acústica e Engenharia da Computação, assim as novas 
+categorias são:
+
+* **NOME_CURSO_AJUSTADO**
+  * Engenharia de Produção ou Controle e Automatação = Engenharia de Produção +
+  Engenharia de Controle e Automatação;
+  * Engenharia Química, Sanitária, Acústica e Computação = Engenharia Química +
+  Engenharia Sanitária e Ambiental + Engenharia Acústica + Engenharia da 
+  Computação
+  * Ciência da Computação ou Sistemas de Informação = Sistemas de Informação/CT +
+  Ciência da Computação
+
+* **ID_ETNIA**
+  * Outros = Sem informação + Indígena + Amarela + Parda
+
+* **INGRESSO**
+  * Outros = Reingresso + Seleção + SiSU + Mobilidade Acadêmica
+  * Refugiados ou Transferência = Refugiados + Transferência
+  * Vestibular, Convênios e PS = Vestibular + Convênios + Processo Seletivo 
+  Seriado
+
+* **COTA**
+  * PCD = Social e PCD + Racial e PCD + Social, Racial e PCD + PCD
+  * Social e Racial = Social e Racial + Racial + Social
+  * Universal = Sem informação + Universal + Escola Pública
+
+Assim nota-se que temos pequenos ajustes, quanto aos cursos, para as etnias 
+precisou-se agrupar as etnias com menor concentração, com exceção da Etnia Preta,
+para a forma de ingresso e as cotas, tiveram que ser reduzidas para 3 categorias,
+as cotas ficaram de formas fáceis de serem interpretas, cotas PCD, cotas Sociais
+e/ou Raciais e cotas com menos restrição. Para essas novas categorias, temos que 
+as categorias bases são Universal (para COTA), Outros (para ID_ETNIA), Outros 
+(para INGRESSO) e continua Engenharia de Telecomunicações para 
+NOME_CURSO_AJUSTADO, assim como podemos ver na Tabela \@ref(tab:cov3), todas 
+as covariáveis são significativas a 5%, assim conseguimos um modelo candidato
+podemos ir para a análise de resíduos.
 
 ```{r}
 df1 = df |> mutate(ID_ETNIA = factor(ID_ETNIA, c('Sem informação','Branca', 'Preta', 'Amarela', 
@@ -332,7 +733,8 @@ df1 = df |> mutate(ID_ETNIA = factor(ID_ETNIA, c('Sem informação','Branca', 'P
                                                    "Ciência da Computação ou Sistemas de Informação" = 
                                                    "Ciência da Computação",
                                                    "Ciência da Computação ou Sistemas de Informação" = 
-                                                   "Sistemas de Informação/CT"),
+                                                   "Sistemas de Informação/CT"
+                                                   ),
          COTA = forcats::fct_recode(COTA, "PCD" = "Racial e PCD",
                                     "PCD" = "Social e PCD",
                                     "PCD" = "Social, Racial e PCD",
@@ -340,19 +742,37 @@ df1 = df |> mutate(ID_ETNIA = factor(ID_ETNIA, c('Sem informação','Branca', 'P
                                     "Social e Racial" = "Racial",
                                     "Social e Racial" = "Social",
                                     "Universal" = "Sem informação"))
-                                    #"Sem informação" = "Social",
-                                    #"Sem informação" = "Universal"))
+                                
 fit1<-survreg(Surv(TEMPO,CENSURA)~ ID_SEXO + COTA + INGRESSO + ID_ETNIA +
-                 CHAMADA + NOME_CURSO_AJUSTADO + DURACAO,  
+                 CHAMADA + NOME_CURSO_AJUSTADO,  
               data = df1,  dist='lognormal')
-summary(fit1)
+ajuste = summary(fit1)
 ```
+
+```{r cov3}
+ajuste$table |> as.data.frame() |> 
+  select(-`Std. Error`, -z) |> rename(Pvalores=p, Betas = Value) |>
+   mutate(Pvalores = format.pval(Pvalores, 3, eps = 0.001)) |>
+   mypdf1::pdf1_tbl("Coeficientes e PValores das covariáveis ajustadas no modelo")
+```
+
+Nota-se que a principal diferença de Tabela \@ref(tab:cov3) para Tabela 
+\@ref(tab:cov), é a exclusão das covariáveis DURACAO e ANO_INGRESSO, pois tem
+correlação alta com NOME_CURSO_AJUSTADO, COTA e INGRESSO, respectivamente. No 
+entanto, essas covariáveis trazem mais informações, assim ficamos apenas com 
+covariávels categóricas.
+
 
 # Análise de Resíduo
 
+Para verificar a qualidade do modelo proposto, precisamos avaliar a sua 
+adequação, onde usualmente é adequado a análise gráfica, assim como na análise 
+de adequação de modelos lineares normais e lineares generalizadas, assim 
+utilizaremos os resíduos $e_i*$, Cox-Snell, Padronizado e Deviance. 
+
 ```{r}
 X =  model.matrix(~ID_SEXO + COTA + INGRESSO + ID_ETNIA + CHAMADA + 
-                       NOME_CURSO_AJUSTADO +  DURACAO, data = df1)
+                       NOME_CURSO_AJUSTADO, data = df1)
 beta = fit1$coefficients
 sigmahat = fit1$scale
 res = (log(df$TEMPO)-X%*%(beta))/sigmahat #Modelo Log-normal
@@ -360,18 +780,38 @@ resid = exp(res)
 ekm <- survfit(Surv(resid, CENSURA)~1, data = df, type=c("kaplan-meier"))
 resid = ekm$time
 sln = pnorm(-log(resid))
-# Para outras distribui��es obter as express�es do lambdahat= -log Shat
+```
+
+Começaremos nossa análise de resíduo com uma variação do resíduo padronizado
+o resíduo $e_i*$, parecido com as técnicas gráficas de adequação dos modelos
+paramétricas, temos o gráfico da sobrevivência do resíduo pela Log-normal e 
+Kaplan-Meier, estão adequados pois estão muito própximos a uma reta linear, no
+gráfico a direita da Figura \@ref(fig:resid1), a curva de sobrevivência da 
+Log-normal tá estimando próximo ao Kaplan-Meier a sobrevivência do resíduo.
+
+```{r resid1, fig.cap="Sobrevivência do resíduo ei* por Kaplan-Meier e Log-normal (à esquerda) e a Sobrevivência a estimada versus o resíduo ei* (à direita)", width = 8}
 par(mfrow=c(1,2))
 plot(ekm$surv,sln, lty=c(1,1), xlab="S(ei*) Kaplan-Meier", 
      ylab="S(ei*) Log-normal padrão")
 plot(ekm, conf.int = F, mark.time = F, xlab = "Resíduos (ei*)", 
      ylab = 'Sobrevivência estimada', pch = 16)
 lines(resid, sln, lty=3)
-legend(8, 1, lty=c(1,2), legend=c("Kaplan-Meier","Log-normal padrão"), 
+legend(0, 1.05, lty=c(1,2), legend=c("Exponencial padrão","Log-normal padrão"), 
       bty="n", cex=0.8)
+```
 
+Assim como a Figura \@ref(fig:resid1), temos que os gráficos de Cox-Snell na 
+Figura \@ref(fig:resid2), são muito semelhantes, indicando adequação do modelo, 
+a principal diferença para o resíduo $e_i*$ é que realizamos a comparação com a
+sobrevivência de Kaplan-Meier, agora realizamos com a sobrevivência da exponencial
+padrão, pois os resíduos de Cox-Snell quando estão adequados, seguem distribuição
+exponencial e isso que conseguimos verificar pela análise gráfica, o modelo de
+Log-normal estima de forma aproximada a distribuição Exponencial padrão do resíduo
+de Cox-Snell.
+
+```{r resid2, fig.cap="Sobrevivência do resíduo de Cox-Snell por Kaplan-Meier e Exponencial (1) (à esquerda) e a Sobrevivência a estimada pela Exponencial versus o resíduo de Cox-Snell (à direita)", width = 8}
 #Resíduos Cox-Snell
-
+par(mfrow=c(1,2))
 ei <- -log(1-pnorm(res))
 ekm1 <- survfit(Surv(ei,df$CENSURA)~1)
 t <- ekm1$time
@@ -381,20 +821,123 @@ plot(st, sexp, xlab="S(ei): Kaplan-Meier", ylab= "S(ei): Exponencial(1)", pch=16
 plot(ekm1, conf.int = F, mark.time = F, xlab = 'Resíduos de Cox-Snell', 
      ylab = 'Sobrevivência estimada')
 lines(t, sexp, lty=4)
-legend(3, 1, lty=c(1,4), legend=c("Kaplan-Meier","Exponencial padrão"), 
+legend(-0.5, 1.03, lty=c(1,4), legend=c("Kaplan-Meier","Exponencial padrão"), 
       bty="n", cex=0.8)
-
-
-# res�duo padronizado 
-resp= log(df$TEMPO)-X%*%(beta)
-par(mfrow=c(1,1))
-plot(resp)
-
-# res�duo Deviance
-d=sign(-m)*sqrt(-2*(m+cens*log(cens-m)))
-rd=resid(fit4, type="deviance")
-plot(d)
-plot(rd)
-
 ```
 
+Assim como a Figura \@ref(fig:resid1), temos que os gráficos de Cox-Snell na 
+Figura \@ref(fig:resid2), são muito semelhantes, indicando adequação do modelo, 
+a principal diferença para o resíduo $e_i*$ é que realizamos a comparação com a
+sobrevivência de Kaplan-Meier, agora realizamos com a sobrevivência da exponencial
+padrão, pois os resíduos de Cox-Snell quando estão adequados, seguem distribuição
+exponencial e isso que conseguimos verificar pela análise gráfica, o modelo de
+Log-normal estima de forma aproximada a distribuição Exponencial padrão do resíduo
+de Cox-Snell, que como é utilizado para avaliação da adequação geral do modelo,
+temos bons índicios de adequação.
+
+Finalizamos a análise de resíduo com a Figura \@ref(fig:resid3), que contêm
+os gráficos do resíduo Deviance e Padronizado, temos que os resíduos estão
+em torno de 0, sem valores que achatem o gráfico, indicando algum ponto de 
+influência ou má adequação do modelo, no entanto, o comportamento não é totalmente
+aleatória, pois temos algumas curvas de pontos que se repetem constantemente
+nos dois gráficos. Para a avaliação de pontos influentes foi realizado a análise
+de DFBETAS para todas as covariáveis e em todos não foi encontrando nenhum desvios
+da regularidade. Assim iremos para a interpretação dos coeficientes ajustados.
+
+```{r resid3, fig.cap="Resíduo Padronizado e Deviance", width = 8}
+par(mfrow=c(1,2))
+resp= (log(df$TEMPO)-X%*%(beta))/sigmahat
+plot(resp)
+
+rd=resid(fit1, type="deviance")
+plot(rd)
+```
+
+
+# Interpretação
+
+A parte mais importante de um modelo focado em inferência, é sua interpretação,
+assim necessitamos corrigir umas das principais limitações dos modelos de tempo
+de vida acelerado, a sua interpretação, que precisa ser feito em relação a uma
+taxa do tempo mediano de sobrevida.
+
+```{r coef}
+ajuste$table |> as.data.frame() |> 
+  select(-`Std. Error`, -z, -p) |> mutate(taxa = exp(Value)) |>
+   mypdf1::pdf1_tbl("Coeficientes e PValores das covariáveis ajustadas no modelo")
+```
+
+Com as taxas dadas Tabela \@ref(tab:coef), realizaremos a interpretação para cada
+covariável/categoria:
+
+* O tempo mediano para as estudantes do sexo feminino se formarem é 10% menor 
+que estudantes do sexo masculino;
+
+* O tempo mediano para as estudantes com cota PCD ou Social e Racial, é 17% e 9%,
+maior que estudantes com cota de Escola Pública, Universal ou Sem Informação;
+
+* O tempo mediano para brancos se formarem é 10% menor que Índigenas, Amarelos e
+Sem informação, enquanto para pretos é 14% maior;
+
+* Para discentes que ingressaram como Refugiados ou por Transferência o tempo
+para a conclusão da graduação é 30% menor e para ingressantes por Vestibular, 
+Convênios e Processo Seletivo Seriado é 13% menor que discentes que ingressaram
+pelo SiSU, Reingresso ou outras formas de ingressar;
+
+* Alunos de todos os cursos do CT tem de 30% a 13% menos tempo para se formar que
+alunos do curso de Engenharia de Telecomunicações, com Ciência da Computação ou
+Sistemas de Informação sendo os cursos com menor tempo em comparação e 
+Arquitetura e Urbanismo o maior tempo.
+
+
+# Conclusão 
+
+A análise do tempo para formação dos alunos do CT, reitera ideias intuitivas e 
+estereótipos, mas também traz informações novas. Mesmo com a maioria exarcebada
+de homens no Centro de Tecnologia, as mulheres levam menos tempo para se formar,
+o que pode ser objeto de estudo de alguma característica do centro para com as 
+mulheres ou da sociedade, pois mesmo com um ambiente teoricamente pouco 
+acolhedor, no indicador de desempenho sendo o tempo para formação, as mulheres
+possuem resultados superiores.
+
+No entanto, como já foi mencionado, alguns estereótipos foram confirmados, como
+por exemplo alunos brancos tendo maior facilidade para se formar e alunos pretos
+com maior dificuldade, o que também pode ser resultado de ser uma minoria ainda menor que
+as das mulheres. Para os cotistas, temos que os alunos com PCD ou com cota
+Social e/ou Racial, possuem maior tempo para formação que alunos com cota de 
+Escola Pública ou Universal. Para a análise da forma de ingresso, o estudo
+se torna uma pouco mais complicado, pelas enormes associações de fatores, no 
+entanto SiSu e Vestibular formam mais de $80$% das observaçõese SiSU fica no 
+grupo com maior tempo para se formar, o que em boa parte deve-se a uma 
+quantidade alta de dados censurados. 
+
+Nesse ínterim, destaca-se da variável INGRESSO que discentes que ingressaram 
+como transferência ou refugiados possuem o menor tempo para formação. Assim,
+acredito que esse estudo trouxe muitas confirmações do imaginário público, mas 
+também trouxe conhecimentos novos, que se observadas com cuidado ajudam a focar 
+nos problemas concretos. Para uma próxima análise, deve-se considerar o ajuste
+de modelos com riscos competitivos.
+
+# Apêndice - Código R {-}
+```{r get-labels, echo = FALSE}
+labs <- knitr::all_labels()
+labs <- setdiff(labs, c("setup", "get-labels"))
+```
+
+```{r ref.label=labs, echo=TRUE, eval=FALSE}
+```
+
+```{r}
+fit <-survreg(Surv(TEMPO,CENSURA)~ ID_SEXO + COTA + INGRESSO + ID_ETNIA +
+                 CHAMADA + NOME_CURSO_AJUSTADO + DURACAO + ANO_INGRESSO,  
+              data = df,  dist='lognormal')
+ajuste = summary(fit)
+```
+
+
+```{r cov}
+ajuste$table |> as.data.frame() |> 
+  select(-`Std. Error`, -z) |> rename(Pvalores=p, Betas = Value) |>
+   mutate(Pvalores = format.pval(Pvalores, 3, eps = 0.001)) |>
+   mypdf1::pdf1_tbl("Coeficientes e PValores no modelo inicial com todas as covariáveis")
+```
