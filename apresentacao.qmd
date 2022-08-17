@@ -21,6 +21,7 @@ library(patchwork)
 
 
 ```{r functions}
+ggplot2::theme_set(ggplot2::theme_minimal()) 
 grafico <- function(data, v1, title, v2 = tempo){
   ggplot(data) +
     geom_point(aes({{v2}},{{v1}})) +
@@ -142,20 +143,6 @@ Sumário
 Motivação
 :::
 
-
-::: {style="margin-top: 300px; font-size: 1em;"}
-
-Obrigado!
-
-:::
-
-### {auto-animate=true}
-
-::: {style="margin-top: 200px; font-size: 3em;"}
-
-Obrigado!
-
-:::
 
 ## {auto-animate=true}
 
