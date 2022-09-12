@@ -313,9 +313,6 @@
       margin-right: 0; 
     }
   </style>
-  
-  <script src="index_files/libs/kePrint-0.0.1/kePrint.js"></script>
-  <link href="index_files/libs/lightable-0.0.1/lightable.css" rel="stylesheet">
 </head>
 <body class="quarto-light">
   <div class="reveal">
@@ -355,7 +352,6 @@
 <li><p>Entendendo o banco</p></li>
 <li><p>Seleção do Modelo</p></li>
 <li><p>Ajuste do modelo</p></li>
-<li><p>Análise de Resíduo</p></li>
 <li><p>Conclusões e Interpretações</p></li>
 </ul>
 </section>
@@ -418,10 +414,10 @@
 <ul>
 <li><p>Desconsideraremos o uso de aluno que evadiram efetivamente;</p>
 <ul>
-<li>Causava problemas na escolha do modelo e nos resíduos;</li>
+<li>Causa problemas na escolha do modelo e resíduos;</li>
 </ul></li>
-<li><p>O modelo mais apropriado seria considerando riscos competitivos (evasão x formação), em jargão médico, é a fração de cura;</p></li>
-<li><p>O banco possui informações quanto aos alunos e quanto ao curso;</p></li>
+<li><p>O modelo mais apropriado seria considerando riscos competitivos (evasão x formação);</p></li>
+<li><p>O banco possui informações quanto aos alunos e quanto ao curso.</p></li>
 </ul>
 </div>
 </section>
@@ -530,10 +526,10 @@
 <div style="margin-top: 10px; font-size: 1.5em;">
 <p>Seleção do modelo</p>
 </div>
-<h3 id="estudando-as-variáveis">Estudando as variáveis</h3>
+<h3 id="sobrevivência-inicial">Sobrevivência inicial</h3>
 
 <img data-src="index_files/figure-revealjs/unnamed-chunk-11-1.png" width="960" class="r-stretch"></section>
-<section id="estudando-as-variáveis-1" class="slide level2">
+<section id="estudando-as-variáveis" class="slide level2">
 <h2>Estudando as variáveis</h2>
 <div class="panel-tabset">
 <ul id="tabset-4" class="panel-tabset-tabby"><li><a data-tabby-default="" href="#tabset-4-1">Sexo</a></li><li><a href="#tabset-4-2">Etnia</a></li><li><a href="#tabset-4-3">Ingresso</a></li><li><a href="#tabset-4-4">Cotas</a></li><li><a href="#tabset-4-5">Chamada</a></li></ul>
@@ -576,66 +572,6 @@
 </div>
 </div>
 </section>
-<section id="seleção-do-modelo" class="slide level2">
-<h2>Seleção do Modelo</h2>
-<div class="cell">
-
-</div>
-<div class="panel-tabset">
-<ul id="tabset-5" class="panel-tabset-tabby"><li><a data-tabby-default="" href="#tabset-5-1">Tempo x Sobrevivência</a></li><li><a href="#tabset-5-2">KM x Modelo</a></li><li><a href="#tabset-5-3">Tabela</a></li></ul>
-<div class="tab-content">
-<div id="tabset-5-1">
-<div class="cell">
-<div class="cell-output-display">
-<p><img data-src="index_files/figure-revealjs/unnamed-chunk-18-1.png" width="960"></p>
-</div>
-</div>
-</div>
-<div id="tabset-5-2">
-<div class="cell">
-<div class="cell-output-display">
-<p><img data-src="index_files/figure-revealjs/unnamed-chunk-19-1.png" width="960"></p>
-</div>
-</div>
-</div>
-<div id="tabset-5-3">
-<div class="cell">
-<div class="cell-output-display">
-
-<table class=" lightable-classic" style="font-family: &quot;Arial Narrow&quot;, &quot;Source Sans Pro&quot;, sans-serif; margin-left: auto; margin-right: auto;">
-<caption>Seleção do modelo</caption>
- <thead>
-  <tr>
-   <th style="text-align:center;"> Comparacoes </th>
-   <th style="text-align:center;"> pvalores </th>
-  </tr>
- </thead>
-<tbody>
-  <tr>
-   <td style="text-align:center;"> Exponencial - Gamma Generalizada </td>
-   <td style="text-align:center;"> 0.0000000 </td>
-  </tr>
-  <tr>
-   <td style="text-align:center;"> Weibull - Gamma Generalizada </td>
-   <td style="text-align:center;"> 0.0000000 </td>
-  </tr>
-  <tr>
-   <td style="text-align:center;"> Log-Normal - Gamma Generalizada </td>
-   <td style="text-align:center;"> 0.0603243 </td>
-  </tr>
-  <tr>
-   <td style="text-align:center;"> Exponencial - Weibull </td>
-   <td style="text-align:center;"> 0.0000000 </td>
-  </tr>
-</tbody>
-</table>
-
-</div>
-</div>
-</div>
-</div>
-</div>
-</section>
 <section id="section-10" class="slide level2" data-auto-animate="true">
 <h2 data-id="quarto-animate-title"></h2>
 <div style="margin-top: 200px; font-size: 3em;">
@@ -660,7 +596,7 @@
 <ul>
 <li><strong>NOME_CURSO_AJUSTADO</strong>
 <ul>
-<li>Engenharia de Produção ou Controle e Automatação = Engenharia de Produção + Engenharia de Controle e Automatação;</li>
+<li>Engenharia de Produção ou Controle e Automação = Engenharia de Produção + Engenharia de Controle e Automação;</li>
 <li>Engenharia Química, Sanitária, Acústica e Computação = Engenharia Química + Engenharia Sanitária e Ambiental + Engenharia Acústica + Engenharia da Computação</li>
 <li>Ciência da Computação ou Sistemas de Informação = Sistemas de Informação/CT + Ciência da Computação</li>
 </ul></li>
@@ -669,7 +605,7 @@
 <section id="ajuste-do-modelo---agrupamentos-1" class="slide level2">
 <h2>Ajuste do Modelo - Agrupamentos</h2>
 <ul>
-<li><strong>ID_ETNIA</strong>
+<li><strong>ETNIA</strong>
 <ul>
 <li>Outros = Sem informação + Indígena + Amarela + Parda</li>
 </ul></li>
@@ -691,169 +627,79 @@
 <li>Universal = Sem informação + Universal + Escola Pública</li>
 </ul></li>
 </ul>
-</section>
-<section id="ajuste-do-modelo" class="slide level2 scrollable">
-<h2>Ajuste do Modelo</h2>
 <div class="cell">
 
 </div>
-<div class="cell" width="1200">
-<div class="cell-output-display">
-
-<table class=" lightable-classic" style="font-family: &quot;Arial Narrow&quot;, &quot;Source Sans Pro&quot;, sans-serif; margin-left: auto; margin-right: auto;">
-<caption>Covariáveis ajustadas no modelo</caption>
- <thead>
-  <tr>
-   <th style="text-align:left;">   </th>
-   <th style="text-align:center;"> Betas </th>
-   <th style="text-align:center;"> Pvalores </th>
-   <th style="text-align:center;"> taxa </th>
-  </tr>
- </thead>
-<tbody>
-  <tr>
-   <td style="text-align:left;"> (Intercept) </td>
-   <td style="text-align:center;"> 2.1186887 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 8.3202197 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> ID_SEXOFeminino </td>
-   <td style="text-align:center;"> -0.0968235 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 0.9077162 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> COTAPCD </td>
-   <td style="text-align:center;"> 0.1535738 </td>
-   <td style="text-align:center;"> 0.04380 </td>
-   <td style="text-align:center;"> 1.1659939 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> COTASocial e Racial </td>
-   <td style="text-align:center;"> 0.0829484 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 1.0864857 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> INGRESSORefugiados ou Transferência </td>
-   <td style="text-align:center;"> -0.3329489 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 0.7168068 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> INGRESSOVestibular, Convênios e PS </td>
-   <td style="text-align:center;"> -0.1332387 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 0.8752562 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> ID_ETNIABranca </td>
-   <td style="text-align:center;"> -0.0961389 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 0.9083378 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> ID_ETNIAPreta </td>
-   <td style="text-align:center;"> 0.1323381 </td>
-   <td style="text-align:center;"> 0.00244 </td>
-   <td style="text-align:center;"> 1.1414942 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> CHAMADAChamada </td>
-   <td style="text-align:center;"> 0.1545717 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 1.1671579 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> CHAMADAListão </td>
-   <td style="text-align:center;"> 0.0789697 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 1.0821715 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> NOMEArquitetura e Urbanismo/CT </td>
-   <td style="text-align:center;"> -0.1361947 </td>
-   <td style="text-align:center;"> 0.03944 </td>
-   <td style="text-align:center;"> 0.8726727 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> NOMECiência da Computação ou Sistemas de Informação </td>
-   <td style="text-align:center;"> -0.3366867 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 0.7141326 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> NOMEEngenharia Química, Sanitária, Acústica e Computação </td>
-   <td style="text-align:center;"> -0.1576397 </td>
-   <td style="text-align:center;"> 0.01078 </td>
-   <td style="text-align:center;"> 0.8541575 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> NOMEEngenharia Aeroespacial </td>
-   <td style="text-align:center;"> -0.2019718 </td>
-   <td style="text-align:center;"> 0.00689 </td>
-   <td style="text-align:center;"> 0.8171180 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> NOMEEngenharia Civil </td>
-   <td style="text-align:center;"> -0.2617833 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 0.7696778 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> NOMEEngenharia de Produção ou Controle e Automatação </td>
-   <td style="text-align:center;"> -0.1527386 </td>
-   <td style="text-align:center;"> 0.01512 </td>
-   <td style="text-align:center;"> 0.8583540 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> NOMEEngenharia Elétrica/CT </td>
-   <td style="text-align:center;"> -0.2406758 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 0.7860965 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> NOMEEngenharia Mecânica/CT </td>
-   <td style="text-align:center;"> -0.2444037 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 0.7831714 </td>
-  </tr>
-  <tr>
-   <td style="text-align:left;"> Log(scale) </td>
-   <td style="text-align:center;"> -1.1284930 </td>
-   <td style="text-align:center;"> &lt; 0.001 </td>
-   <td style="text-align:center;"> 0.3235204 </td>
-  </tr>
-</tbody>
-</table>
-
-</div>
-</div>
 </section>
-<section id="ajuste-do-modelo-1" class="slide level2">
+<section id="ajuste-do-modelo" class="slide level2">
 <h2>Ajuste do Modelo</h2>
 <div class="panel-tabset">
-<ul id="tabset-6" class="panel-tabset-tabby"><li><a data-tabby-default="" href="#tabset-6-1">Aeroespacial</a></li><li><a href="#tabset-6-2">Cívil</a></li><li><a href="#tabset-6-3">Arquitetura</a></li></ul>
+<ul id="tabset-5" class="panel-tabset-tabby"><li><a data-tabby-default="" href="#tabset-5-1">Aeroespacial</a></li><li><a href="#tabset-5-2">Civil</a></li><li><a href="#tabset-5-3">Arquitetura</a></li><li><a href="#tabset-5-4">Elétrica</a></li></ul>
 <div class="tab-content">
-<div id="tabset-6-1">
+<div id="tabset-5-1">
+<div class="cell">
+
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<p><img data-src="index_files/figure-revealjs/unnamed-chunk-20-1.png" width="960"></p>
+</div>
+</div>
+</div>
+<div id="tabset-5-2">
+<div class="cell">
+<div class="cell-output-display">
+<p><img data-src="index_files/figure-revealjs/unnamed-chunk-21-1.png" width="960"></p>
+</div>
+</div>
+</div>
+<div id="tabset-5-3">
 <div class="cell">
 <div class="cell-output-display">
 <p><img data-src="index_files/figure-revealjs/unnamed-chunk-22-1.png" width="960"></p>
 </div>
 </div>
 </div>
-<div id="tabset-6-2">
+<div id="tabset-5-4">
 <div class="cell">
 <div class="cell-output-display">
 <p><img data-src="index_files/figure-revealjs/unnamed-chunk-23-1.png" width="960"></p>
 </div>
 </div>
 </div>
-<div id="tabset-6-3">
+</div>
+</div>
+</section>
+<section id="ajuste-do-modelo-1" class="slide level2">
+<h2>Ajuste do Modelo</h2>
+<div class="panel-tabset">
+<ul id="tabset-6" class="panel-tabset-tabby"><li><a data-tabby-default="" href="#tabset-6-1">União</a></li><li><a href="#tabset-6-2">Mecânica</a></li><li><a href="#tabset-6-3">Computação</a></li><li><a href="#tabset-6-4">Telecom</a></li></ul>
+<div class="tab-content">
+<div id="tabset-6-1">
 <div class="cell">
 <div class="cell-output-display">
 <p><img data-src="index_files/figure-revealjs/unnamed-chunk-24-1.png" width="960"></p>
+</div>
+</div>
+</div>
+<div id="tabset-6-2">
+<div class="cell">
+<div class="cell-output-display">
+<p><img data-src="index_files/figure-revealjs/unnamed-chunk-25-1.png" width="960"></p>
+</div>
+</div>
+</div>
+<div id="tabset-6-3">
+<div class="cell">
+<div class="cell-output-display">
+<p><img data-src="index_files/figure-revealjs/unnamed-chunk-26-1.png" width="960"></p>
+</div>
+</div>
+</div>
+<div id="tabset-6-4">
+<div class="cell">
+<div class="cell-output-display">
+<p><img data-src="index_files/figure-revealjs/unnamed-chunk-27-1.png" width="960"></p>
 </div>
 </div>
 </div>

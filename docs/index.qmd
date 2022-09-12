@@ -92,7 +92,7 @@ significancia_covariaveis <- function(df, dist, ...){
 
 
 
-#survdiff(Surv(TEMPO,CENSURA)~ID_SEXO, data = df,rho=0) -> a
+#survdiff(Surv(TEMPO,CENSURA)~SEXO, data = df,rho=0) -> a
 ```
 
 ```{r}
@@ -102,10 +102,10 @@ df = df |> mutate(INGRESSO = as.factor(INGRESSO),COTA = as.factor(COTA),
                   CHAMADA = as.factor(CHAMADA), 
                   NOME_CURSO_AJUSTADO = as.factor(NOME_CURSO_AJUSTADO), 
                   TURNO_CURSO = as.factor(TURNO_CURSO), 
-                  ID_SEXO = forcats::fct_recode(factor(ID_SEXO), 
+                  SEXO = forcats::fct_recode(factor(ID_SEXO), 
                                                 'Masculino' = '1', 
                                                 'Feminino' = '2'), 
-                  ID_ETNIA = forcats::fct_recode( factor(ID_ETNIA), 
+                  ETNIA = forcats::fct_recode(factor(ID_ETNIA), 
                                                   'Branca' = '1', 'Preta' = '2', 
                                                   'Amarela' = '3', 'Parda' = '4', 
                                                   'Indígena' = '5', 
@@ -134,8 +134,6 @@ Sumário
 - Seleção do Modelo 
 
 - Ajuste do modelo
-
-- Análise de Resíduo
 
 - Conclusões e Interpretações 
 
@@ -209,12 +207,12 @@ Entendendo o banco
 
 
 - Desconsideraremos o uso de aluno que evadiram efetivamente;
-  - Causava problemas na escolha do modelo e nos resíduos;
+  - Causa problemas na escolha do modelo e resíduos;
 
 - O modelo mais apropriado seria considerando riscos competitivos (evasão x 
-formação), em jargão médico, é a fração de cura;
+formação);
 
-- O banco possui informações quanto aos alunos e quanto ao curso;
+- O banco possui informações quanto aos alunos e quanto ao curso.
 
 :::
 
@@ -244,9 +242,9 @@ resultados do teste de logrank e o uso da Regressão de Cox, ficam comprometidos
 ### Sexo e Etnia
 
 ```{r}
-bar_plot(df, ID_SEXO) + bar_plot(df |>
-            mutate(ID_ETNIA =
-                     forcats::fct_infreq(ID_ETNIA)), ID_ETNIA) +
+bar_plot(df, SEXO) + bar_plot(df |>
+            mutate(ETNIA =
+                     forcats::fct_infreq(ETNIA)), ETNIA) +
   theme(axis.text.x = element_text(angle = 20, size = 10, hjust = 1))
 ```
 
@@ -339,11 +337,11 @@ Seleção do modelo
 Seleção do modelo
 :::
 
-### Estudando as variáveis
+### Sobrevivência inicial
 
 ```{r}
 fit_ekm <- survfit(Surv(TEMPO,CENSURA)~1, data = df)
-autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
+autoplot(fit_ekm, ylab='Porcentagem de não conclusão', xlab='Tempo')
 ```
 
 
@@ -354,8 +352,8 @@ autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')
 ### Sexo
 
 ```{r}
-fit_ekm <- survfit(Surv(TEMPO,CENSURA)~ID_SEXO, data = df)
-autoplot(fit_ekm, ylab='Porcentagem de conclusão') + 
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~SEXO, data = df)
+autoplot(fit_ekm, ylab='Porcentagem de não conclusão') + 
   theme(legend.title = element_blank()) 
 ```
 
@@ -363,17 +361,13 @@ autoplot(fit_ekm, ylab='Porcentagem de conclusão') +
 ### Etnia
 
 ```{r}
-fit_ekm <- survfit(Surv(TEMPO,CENSURA)~ID_ETNIA, data = df |> 
-                     filter(!ID_ETNIA %in% c('Amarela', 'Indígena', 
-                                             'Sem informação')))
-p1 = autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo') +
+fit_ekm <- survfit(Surv(TEMPO,CENSURA)~ETNIA, data = df )#|> 
+                     # filter(!ID_ETNIA %in% c('Amarela', 'Indígena', 
+                     #                         'Sem informação')))
+p1 = autoplot(fit_ekm, ylab='Porcentagem de não conclusão', xlab='Tempo',
+              conf.int = F) +
   theme(legend.title = element_blank())
-fit_ekm <- survfit(Surv(TEMPO,CENSURA)~ID_ETNIA, data = df |> 
-                     filter(ID_ETNIA %in% c('Amarela', 'Indígena', 
-                                             'Sem informação')))
-p2 = autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo') +
-  theme(legend.title = element_blank())
-p1 + p2
+p1
 ```
 
 
@@ -381,19 +375,14 @@ p1 + p2
 
 ```{r}
 fit_ekm <- survfit(Surv(TEMPO,CENSURA)~INGRESSO, data = df |>
-                     filter(INGRESSO %in% c('SiSU', 'Vestibular', 'Reingresso',
-                                            'Processo Seletivo Seriado')) |>
+                     # filter(INGRESSO %in% c('SiSU', 'Vestibular', 'Reingresso',
+                     #                        'Processo Seletivo Seriado')) |>
                      mutate(INGRESSO = forcats::fct_recode(INGRESSO, 'PEIES' = 
                                                 "Processo Seletivo Seriado")))
-p1 =  autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo') + 
+p1 =  autoplot(fit_ekm, ylab='Porcentagem de não conclusão', xlab='Tempo', 
+               conf.int = F) + 
   theme(legend.title = element_blank())
-
-fit_ekm <- survfit(Surv(TEMPO,CENSURA)~INGRESSO, data = df |>
-                     filter(INGRESSO %in% c('Transferências', 'Convênios', 
-                                            'Refugiados')))
-p2 = autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo') +
-  theme(legend.title = element_blank())
-p1 + p2
+p1
 ```
 
 
@@ -402,18 +391,13 @@ p1 + p2
 ```{r}
 fit_ekm <- survfit(Surv(TEMPO,CENSURA)~COTA, data = df |>
                      filter(COTA %in% c('Universal', 'Escola Pública', 
-                                            'Racial', 'Social'))) 
+                                        'Racial', 'Social', 'PCD',
+                                        'Sem informação', 'Social e Racial'))) 
 
-p1 = autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo') +
+p1 = autoplot(fit_ekm, ylab='Porcentagem de não conclusão', xlab='Tempo', 
+              conf.int = F) +
   theme(legend.title = element_blank())
-
-fit_ekm <- survfit(Surv(TEMPO,CENSURA)~COTA, data = df |>
-                     filter(COTA %in% c('PCD',
-                                        'Sem informação', 
-                                        'Social e Racial')))
-p2 = autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo') +
-  theme(legend.title = element_blank())
-p1 + p2
+p1
 ```
 
 
@@ -422,79 +406,12 @@ p1 + p2
 
 ```{r}
 fit_ekm <- survfit(Surv(TEMPO,CENSURA)~CHAMADA, data = df)
-autoplot(fit_ekm, ylab='Porcentagem de conclusão', xlab='Tempo')+
+autoplot(fit_ekm, ylab='Porcentagem de não conclusão', xlab='Tempo')+
 theme(legend.title = element_blank())
 ```
 
 :::
 
-## Seleção do Modelo
-
-```{r}
-fitg<-flexsurvreg(Surv(TEMPO,CENSURA)~1, data = df, dist='gengamma')
-fite<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist='exponential')
-fitw<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist='weibull')
-fitln<-survreg(Surv(TEMPO,CENSURA)~1, data = df, dist='lognormal')
-p.valore= 1-pchisq(2*(fitg$loglik[1]-fite$loglik[1]),2)
-p.valorw= 1-pchisq(2*(fitg$loglik[1]-fitw$loglik[1]),1)
-p.valorln= 1-pchisq(2*(fitg$loglik[1]-fitln$loglik[1]),1)
-p.valorew = 1-pchisq(2*(fitw$loglik[1]-fite$loglik[1]),1)
-
-fit_inicial <- survfit(Surv(TEMPO,CENSURA)~1, data = df)
-ekm_inicial <- fit_inicial$surv %>% 
-  data.frame(sobrevivencia=.) %>%
-    mutate(tempo = fit_inicial$time)
-
-alphae = exp(fite$coef)
-alphaw = exp(fitw$coef)
-gamaw = 1/fitw$scale
-mu = fitln$coeff
-sigma = fitln$scale
-ekm_inicial <- ekm_inicial %>% 
-          mutate(exponencial = exp(-tempo/alphae),
-                 weibull = exp(-(tempo/alphaw)^gamaw),
-                 log_normal =pnorm((-log(tempo)+ mu)/ sigma))
-```
-
-
-
-::: {.panel-tabset}
-
-### Tempo x Sobrevivência
-
-```{r}
-grafico(ekm_inicial, -log(sobrevivencia), "Exponencial")  +
-grafico(ekm_inicial, log(-log(sobrevivencia)), 
-         "Weibull", log(tempo))  +
-grafico(ekm_inicial, -qnorm(sobrevivencia), 
-         "Log-normal", log(tempo))  
-```
-
-
-### KM x Modelo 
-
-```{r}
-grafico(ekm_inicial, sobrevivencia, "Exponencial", exponencial)  +
-grafico(ekm_inicial, sobrevivencia, 
-         "Weibull", weibull)  +
-grafico(ekm_inicial, sobrevivencia, 
-         "Log-normal", log_normal)  
-```
-
-
-### Tabela
-
-```{r tab}
-data.frame(Comparacoes = c('Exponencial - Gamma Generalizada',
-                           'Weibull - Gamma Generalizada',
-                           'Log-Normal - Gamma Generalizada',
-                           'Exponencial - Weibull'),
-           pvalores = c(p.valore, p.valorw, p.valorln, p.valorew)) %>%
-  mypdf1::pdf1_tbl('Seleção do modelo')
-
-```
-
-:::
 ## {auto-animate=true}
 
 ::: {style="margin-top: 200px; font-size: 3em;"}
@@ -521,8 +438,8 @@ Ajuste do modelo
 ## Ajuste do Modelo - Agrupamentos
 
 * **NOME_CURSO_AJUSTADO**
-  * Engenharia de Produção ou Controle e Automatação = Engenharia de Produção +
-  Engenharia de Controle e Automatação;
+  * Engenharia de Produção ou Controle e Automação = Engenharia de Produção +
+  Engenharia de Controle e Automação;
   * Engenharia Química, Sanitária, Acústica e Computação = Engenharia Química +
   Engenharia Sanitária e Ambiental + Engenharia Acústica + Engenharia da 
   Computação
@@ -533,7 +450,7 @@ Ajuste do modelo
   
 ## Ajuste do Modelo - Agrupamentos
 
-* **ID_ETNIA**
+* **ETNIA**
   * Outros = Sem informação + Indígena + Amarela + Parda
 
 * **INGRESSO**
@@ -550,10 +467,9 @@ Ajuste do modelo
   * Universal = Sem informação + Universal + Escola Pública
 
 
-## Ajuste do Modelo {.scrollable}
 
 ```{r}
-df1 = df |> mutate(ID_ETNIA = factor(ID_ETNIA, c('Sem informação','Branca', 'Preta', 'Amarela', 
+df1 = df |> mutate(ETNIA = factor(ETNIA, c('Sem informação','Branca', 'Preta', 'Amarela', 
                                                 'Parda', 'Indígena')),
                    INGRESSO = factor(INGRESSO, c("SiSU","Refugiados","Mobilidade Acadêmica",
                                                  "Convênios", 
@@ -584,7 +500,7 @@ df1 = df |> mutate(ID_ETNIA = factor(ID_ETNIA, c('Sem informação','Branca', 'P
                                                   "Engenharia Química",
                                                   "Engenharia Sanitária e Ambiental/CT",
                                                   "Sistemas de Informação/CT"))) |>
-  mutate(ID_ETNIA = forcats::fct_recode(ID_ETNIA, "Outros" = "Sem informação", 
+  mutate(ETNIA = forcats::fct_recode(ETNIA, "Outros" = "Sem informação", 
                                         "Outros" = "Amarela",
                                         "Outros" = "Indígena",
                                         "Outros" = "Parda"),
@@ -629,99 +545,244 @@ df1 = df |> mutate(ID_ETNIA = factor(ID_ETNIA, c('Sem informação','Branca', 'P
                                     "Universal" = "Sem informação")) |>
   rename(NOME = NOME_CURSO_AJUSTADO)
                                 
-fit1<-survreg(Surv(TEMPO,CENSURA)~ ID_SEXO + COTA + INGRESSO + ID_ETNIA +
+fit1<-survreg(Surv(TEMPO,CENSURA)~ SEXO + COTA + INGRESSO + ETNIA +
                  CHAMADA + NOME,  
               data = df1,  dist='lognormal')
 ajuste = summary(fit1)
 ```
 
-```{r}
-#| width: 1200
-ajuste$table |> as.data.frame() |> 
-  select(-`Std. Error`, -z) |> rename(Pvalores=p, Betas = Value) |>
-   mutate(Pvalores = format.pval(Pvalores, 3, eps = 0.001)) |>
-  mutate(taxa = exp(Betas)) |>
-   mypdf1::pdf1_tbl("Covariáveis ajustadas no modelo")
-```
+
 
 ## Ajuste do Modelo 
 
 ::: {.panel-tabset}
 
+```{r}
+cursos = function(t1, s1, c1, t2, s2, c2, title){
+  fit_ekm <- survfit(Surv(TEMPO,CENSURA)~1, data = df1)
+  fit_ekm
+  my_colors <- c("black", "green", "red")
+  ggplot() + 
+    geom_line(aes(x = fit_ekm$time, y = fit_ekm$surv, color = 'Base')) +
+    geom_line(aes(x = t1, y= s1, color = {{c1}})) +
+    geom_line(aes(x = t2, y= s2, color = {{c2}})) +
+    scale_colour_manual("Personas", values = my_colors) +
+    labs(x = 'Tempo no Curso', y = 'Porcentagem de não conclusão', 
+         title = title, subtitle = 'Legenda: Sexo - Etnia - Cota')
+    
+}
+
+s <- with(df1,Surv(TEMPO,CENSURA))
+
+sln <- survreg(s ~ SEXO + COTA + INGRESSO + ETNIA +
+                 CHAMADA + NOME, dist='lognormal', data=df1)
+```
+
+
 ### Aeroespacial
 
 ```{r}
-s <- with(df1,Surv(TEMPO,CENSURA))
 
-sln <- survreg(s ~ ID_SEXO + COTA + INGRESSO + ID_ETNIA +
-                 CHAMADA + NOME, dist='lognormal', data=df1)
-plot(sln$y)
+```
+```{r}
+time = predict(sln, newdata=list(SEXO = 'Feminino', ETNIA = 'Branca', 
+                          COTA = 'Universal', 
+                          INGRESSO = 'Vestibular, Convênios e PS', 
+                          CHAMADA = 'Listão', 
+                          NOME = 'Engenharia Aeroespacial'),type="quantile", 
+        p = seq(.01,.99,by=.01))
 
-lines(predict(sln, newdata=list(ID_SEXO = 'Feminino', ID_ETNIA = 'Branca', 
-                                    COTA = 'Universal', INGRESSO = 'Vestibular, Convênios e PS', 
-                                    CHAMADA = 'Listão', 
-                                    NOME = 'Engenharia Aeroespacial'), 
-                  type="quantile",p = seq(.01,.99,by=.01)),
-          seq(.99,.01,by=-.01),col="red")
+sobre = seq(.99,.01,by=-.01)
 
-lines(predict(sln, newdata=list(ID_SEXO = 'Masculino', ID_ETNIA = 'Preta', 
+
+time2 = predict(sln, newdata=list(SEXO = 'Masculino', ETNIA = 'Preta', 
                                     COTA = 'Social e Racial', INGRESSO = 'Outros', 
                                     CHAMADA = 'Listão', 
                                     NOME = 'Engenharia Aeroespacial'), 
-                  type="quantile",p = seq(.01,.99,by=.01)),
-          seq(.99,.01,by=-.01),col="red")
+                  type="quantile",p = seq(.01,.99,by=.01))
+
+cursos(time, sobre, 'F - Branca - Universal', 
+       time2, sobre, 'M - Negro - Social e Racial',
+       'Sobrevivência para diferentes alunos da E. Aeroespacial')
+  
 ```
 
-### Cívil
+
+### Civil
 
 ```{r}
-s <- with(df1,Surv(TEMPO,CENSURA))
+time = predict(sln, newdata=list(SEXO = 'Feminino', ETNIA = 'Branca', 
+                          COTA = 'Universal', 
+                          INGRESSO = 'Vestibular, Convênios e PS', 
+                          CHAMADA = 'Listão', 
+                          NOME = 'Engenharia Civil'),type="quantile", 
+        p = seq(.01,.99,by=.01))
 
-sln <- survreg(s ~ ID_SEXO + COTA + INGRESSO + ID_ETNIA +
-                 CHAMADA + NOME, dist='lognormal', data=df1)
-plot(sln$y)
+sobre = seq(.99,.01,by=-.01)
 
-lines(predict(sln, newdata=list(ID_SEXO = 'Feminino', ID_ETNIA = 'Branca', 
-                                    COTA = 'Universal', INGRESSO = 'Vestibular, Convênios e PS', 
-                                    CHAMADA = 'Listão', 
-                                    NOME = 'Engenharia Civil'), 
-                  type="quantile",p = seq(.01,.99,by=.01)),
-          seq(.99,.01,by=-.01),col="red")
 
-lines(predict(sln, newdata=list(ID_SEXO = 'Masculino', ID_ETNIA = 'Preta', 
+time2 = predict(sln, newdata=list(SEXO = 'Masculino', ETNIA = 'Preta', 
                                     COTA = 'Social e Racial', INGRESSO = 'Outros', 
                                     CHAMADA = 'Listão', 
                                     NOME = 'Engenharia Civil'), 
-                  type="quantile",p = seq(.01,.99,by=.01)),
-          seq(.99,.01,by=-.01),col="red")
+                  type="quantile",p = seq(.01,.99,by=.01))
+
+cursos(time, sobre, 'F - Branca - Universal', 
+       time2, sobre, 'M - Negro - Social e Racial',
+       'Sobrevivência para diferentes alunos da E. Civil')
 ```
 
 
 ### Arquitetura
 
 ```{r}
-s <- with(df1,Surv(TEMPO,CENSURA))
+time = predict(sln, newdata=list(SEXO = 'Feminino', ETNIA = 'Branca', 
+                          COTA = 'Universal', 
+                          INGRESSO = 'Vestibular, Convênios e PS', 
+                          CHAMADA = 'Listão', 
+                          NOME = 'Arquitetura e Urbanismo/CT'),type="quantile", 
+        p = seq(.01,.99,by=.01))
 
-sln <- survreg(s ~ ID_SEXO + COTA + INGRESSO + ID_ETNIA +
-                 CHAMADA + NOME, dist='lognormal', data=df1)
-plot(sln$y)
+sobre = seq(.99,.01,by=-.01)
 
-lines(predict(sln, newdata=list(ID_SEXO = 'Feminino', ID_ETNIA = 'Branca', 
-                                    COTA = 'Universal', INGRESSO = 'Vestibular, Convênios e PS', 
-                                    CHAMADA = 'Listão', 
-                                    NOME = 'Arquitetura e Urbanismo/CT'), 
-                  type="quantile",p = seq(.01,.99,by=.01)),
-          seq(.99,.01,by=-.01),col="red")
 
-lines(predict(sln, newdata=list(ID_SEXO = 'Masculino', ID_ETNIA = 'Preta', 
+time2 = predict(sln, newdata=list(SEXO = 'Masculino', ETNIA = 'Preta', 
                                     COTA = 'Social e Racial', INGRESSO = 'Outros', 
                                     CHAMADA = 'Listão', 
                                     NOME = 'Arquitetura e Urbanismo/CT'), 
-                  type="quantile",p = seq(.01,.99,by=.01)),
-          seq(.99,.01,by=-.01),col="red")
+                  type="quantile",p = seq(.01,.99,by=.01))
+
+cursos(time, sobre, 'F - Branca - Universal', 
+       time2, sobre, 'M - Negro - Social e Racial',
+       'Sobrevivência para diferentes alunos da Arquitetura')
+```
+
+### Elétrica
+
+```{r}
+time = predict(sln, newdata=list(SEXO = 'Feminino', ETNIA = 'Branca', 
+                          COTA = 'Universal', 
+                          INGRESSO = 'Vestibular, Convênios e PS', 
+                          CHAMADA = 'Listão', 
+                          NOME = 'Engenharia Elétrica/CT'),type="quantile", 
+        p = seq(.01,.99,by=.01))
+
+sobre = seq(.99,.01,by=-.01)
+
+
+time2 = predict(sln, newdata=list(SEXO = 'Masculino', ETNIA = 'Preta', 
+                                    COTA = 'Social e Racial', INGRESSO = 'Outros', 
+                                    CHAMADA = 'Listão', 
+                                    NOME = 'Engenharia Elétrica/CT'), 
+                  type="quantile",p = seq(.01,.99,by=.01))
+
+cursos(time, sobre, 'F - Branca - Universal', 
+       time2, sobre, 'M - Negro - Social e Racial',
+       'Sobrevivência para diferentes alunos da E. Elétrica')
 ```
 
 
+:::
+
+
+## Ajuste do Modelo 
+
+::: {.panel-tabset}
+
+### União
+
+```{r}
+time = predict(sln, newdata=list(SEXO = 'Feminino', ETNIA = 'Branca', 
+                          COTA = 'Universal', 
+                          INGRESSO = 'Vestibular, Convênios e PS', 
+                          CHAMADA = 'Listão', 
+                          NOME = 'Engenharia Química, Sanitária, Acústica e Computação'),type="quantile", 
+        p = seq(.01,.99,by=.01))
+
+sobre = seq(.99,.01,by=-.01)
+
+
+time2 = predict(sln, newdata=list(SEXO = 'Masculino', ETNIA = 'Preta', 
+                                    COTA = 'Social e Racial', INGRESSO = 'Outros', 
+                                    CHAMADA = 'Listão', 
+                                    NOME = 'Engenharia Química, Sanitária, Acústica e Computação'), 
+                  type="quantile",p = seq(.01,.99,by=.01))
+
+cursos(time, sobre, 'F - Branca - Universal', 
+       time2, sobre, 'M - Negro - Social e Racial',
+       'Sobrevivência para E. Química, Sanitária, Acústica e Computação')
+```
+### Mecânica
+
+```{r}
+time = predict(sln, newdata=list(SEXO = 'Feminino', ETNIA = 'Branca', 
+                          COTA = 'Universal', 
+                          INGRESSO = 'Vestibular, Convênios e PS', 
+                          CHAMADA = 'Listão', 
+                          NOME = 'Engenharia Mecânica/CT'),type="quantile", 
+        p = seq(.01,.99,by=.01))
+
+sobre = seq(.99,.01,by=-.01)
+
+
+time2 = predict(sln, newdata=list(SEXO = 'Masculino', ETNIA = 'Preta', 
+                                    COTA = 'Social e Racial', INGRESSO = 'Outros', 
+                                    CHAMADA = 'Listão', 
+                                    NOME = 'Engenharia Mecânica/CT'), 
+                  type="quantile",p = seq(.01,.99,by=.01))
+
+cursos(time, sobre, 'F - Branca - Universal', 
+       time2, sobre, 'M - Negro - Social e Racial',
+       'Sobrevivência para E. Mecânica')
+```
+
+### Computação
+
+```{r}
+time = predict(sln, newdata=list(SEXO = 'Feminino', ETNIA = 'Branca', 
+                          COTA = 'Universal', 
+                          INGRESSO = 'Vestibular, Convênios e PS', 
+                          CHAMADA = 'Listão', 
+                          NOME = 'Ciência da Computação ou Sistemas de Informação'),type="quantile", 
+        p = seq(.01,.99,by=.01))
+
+sobre = seq(.99,.01,by=-.01)
+
+
+time2 = predict(sln, newdata=list(SEXO = 'Masculino', ETNIA = 'Preta', 
+                                    COTA = 'Social e Racial', INGRESSO = 'Outros', 
+                                    CHAMADA = 'Listão', 
+                                    NOME = 'Ciência da Computação ou Sistemas de Informação'), 
+                  type="quantile",p = seq(.01,.99,by=.01))
+
+cursos(time, sobre, 'F - Branca - Universal', 
+       time2, sobre, 'M - Negro - Social e Racial',
+       'Sobrevivência para Computação')
+```
+
+### Telecom
+
+```{r}
+time = predict(sln, newdata=list(SEXO = 'Feminino', ETNIA = 'Branca', 
+                          COTA = 'Universal', 
+                          INGRESSO = 'Vestibular, Convênios e PS', 
+                          CHAMADA = 'Listão', 
+                          NOME = 'Engenharia de Telecomunicações'),type="quantile", 
+        p = seq(.01,.99,by=.01))
+
+sobre = seq(.99,.01,by=-.01)
+
+
+time2 = predict(sln, newdata=list(SEXO = 'Masculino', ETNIA = 'Preta', 
+                                    COTA = 'Social e Racial', INGRESSO = 'Outros', 
+                                    CHAMADA = 'Listão', 
+                                    NOME = 'Engenharia de Telecomunicações'), 
+                  type="quantile",p = seq(.01,.99,by=.01))
+
+cursos(time, sobre, 'F - Branca - Universal', 
+       time2, sobre, 'M - Negro - Social e Racial',
+       'Sobrevivência para E. Telecomunicações')
+```
 
 :::
 
